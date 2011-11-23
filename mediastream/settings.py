@@ -116,13 +116,15 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # Uncomment the next line to enable the admin:
     'django.contrib.admin',
-    # Uncomment the next line to enable admin documentation:
     'django.contrib.admindocs',
+    # third-party stuff
     'debug_toolbar',
-    'mediastream.assets',
     'south',
+    # our applications
+    'mediastream.assets',
+    'mediastream.player',
+    'mediastream.queuer',
 )
 
 # A sample logging configuration. The only tangible logging

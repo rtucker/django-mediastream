@@ -10,6 +10,7 @@ urlpatterns = patterns('',
     # url(r'^mediastream/', include('mediastream.foo.urls')),
 
     url(r'^assets/', include('mediastream.assets.urls')),
+    url(r'^player/', include('mediastream.player.urls')),
 
     # Uncomment the admin/doc line below to enable admin documentation:
     url(r'^admin/doc/', include('django.contrib.admindocs.urls')),

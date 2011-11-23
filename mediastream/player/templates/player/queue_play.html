@@ -1,0 +1,13 @@
+{% extends "player.html" %}
+{% block player_setmedia %}
+    {% for item in offer %}
+    mp3: "{{ item.asset.track.get_streaming_url|escapejs }}"{% if not forloop.last %},{% endif %}
+    {% endfor %}
+{% endblock %}
+{% block player_textbox %}
+    <ul>
+      {% for item in offer %}
+      <li>{{ item.asset.track.artist }} | {{ item.asset.track }}</li>
+      {% endfor %}
+    </ul>
+{% endblock %}
