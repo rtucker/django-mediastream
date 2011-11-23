@@ -34,6 +34,7 @@ def _get_upload_path(instance, filename):
 class Thing(models.Model):
     "Abstract base class for things with names."
     name = models.CharField(max_length=255)
+    name.alphabetic_filter = True
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
