@@ -1,0 +1,4 @@
+# AWS Settings for S3 storage
+AWS_ACCESS_KEY=""
+AWS_SECRET_ACCESS_KEY=""
+AWS_STORAGE_BUCKET_NAME=""
