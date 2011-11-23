@@ -18,6 +18,18 @@ for mt in mimetypes.types_map.values():
 
 MIMETYPE_CHOICES = sorted(mimetypes_grouped.items())
 
+def _get_upload_path(instance, filename):
+    if not instance.mimetype:
+        instance.mimetype = mimetypes.guess_type(filename)[0]
+
+    if hasattr(instance.asset, 'track'):
+        if instance.asset.track.album.is_compilation:
+            return os.path.join(basepath, 'V', 'Various Artists', instance.asset.track.album.name, instance.filename)
+        else:
+            return os.path.join(basepath, instance.asset.track.artist.name.upper()[0], instance.asset.track.artist.name, instance.asset.track.album.name, instance.filename)
+    else:
+        return os.path.join(basepath, instance.filename)
+
 # Broad, generic things.
 class Thing(models.Model):
     "Abstract base class for things with names."
@@ -42,18 +54,6 @@ class Asset(Thing):
 
 class AssetFile(Thing):
     "Describes an underlying file for an Asset."
-    def _get_upload_path(self, instance, filename):
-        if not self.mimetype:
-            self.mimetype = mimetypes.guess_type(filename)
-
-        if hasattr(self.asset, 'track'):
-            if self.asset.track.album.is_compilation:
-                return os.path.join(basepath, 'V', 'Various Artists', self.asset.track.album.name, self.filename)
-            else:
-                return os.path.join(basepath, self.asset.track.artist.name.upper()[0], self.asset.track.artist.name, self.asset.track.album.name, self.filename)
-        else:
-            return os.path.join(basepath, self.filename)
-
     asset = models.ForeignKey(Asset)
     contents = models.FileField(upload_to=_get_upload_path)
     mimetype = models.CharField(max_length=255, choices=MIMETYPE_CHOICES, blank=True)
@@ -64,9 +64,9 @@ class AssetFile(Thing):
     @property
     def filename(self):
         if hasattr(self.asset, 'track'):
-            return u"{}.{}".format(self.asset.track.name, mimetypes.guess_extension(self.mimetype, False))
+            return u"{}{}".format(self.asset.track.name, mimetypes.guess_extension(self.mimetype, False))
         else:
-            return u"{}.{}".format(self.name, mimetypes.guess_extension(self.mimetype, False))
+            return u"{}{}".format(self.name, mimetypes.guess_extension(self.mimetype, False))
 
 class AssetDescriptor(models.Model):
     "Describes a bitstream in a possibly-multiplexed file."
@@ -89,7 +89,7 @@ class AssetDescriptor(models.Model):
 # Music-specific concepts.
 class Artist(Thing):
     "A performing artist."
-    is_prince = models.BooleanField(default=False, help_text="If true, Unicode representation is O(+> between 1993 and 2000.")
+    is_prince = models.BooleanField(default=False, help_text="If true, Unicode representation will be O(+> between 1993 and 2000.", verbose_name="Is often known as Prince")
 
     def __unicode__(self):
         return u"O(+>" if self.is_prince else self.name
@@ -132,3 +132,7 @@ class Track(Asset):
     class Meta:
         order_with_respect_to = 'album'
         ordering = ['disc_number', 'track_number']
+
+    def get_streaming_url(self, **kwargs):
+        "Returns the best URL for this object."
+        return self.assetfile_set.all()[0].contents.url

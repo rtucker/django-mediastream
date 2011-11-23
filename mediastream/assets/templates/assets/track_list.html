@@ -1,0 +1,25 @@
+<html>
+<head>
+  <title>mediastream | track list</title>
+</head>
+<body>
+  <h1>mediastream</h1>
+  {% regroup object_list by artist as artist_list %}
+  <ul>
+    {% for artist in artist_list %}
+    <li>{{ artist.grouper }}</li>
+    <ul>
+      {% regroup artist.grouper.track_set.all by album as album_list %}
+      {% for album in album_list %}
+      <li>{{ album.grouper }}</li>
+      <ul>
+        {% for track in album.grouper.track_set.all %}
+        <li>{{ track.track_number }}. <a href="{{ track.pk }}/">{{ track }}</a></li>
+        {% endfor %}
+      </ul>
+      {% endfor %}
+    </ul>
+    {% endfor %}
+  </ul>
+</body>
+</html>

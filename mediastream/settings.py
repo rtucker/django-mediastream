@@ -98,6 +98,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 )
 
 ROOT_URLCONF = 'mediastream.urls'
@@ -119,6 +120,7 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     # Uncomment the next line to enable admin documentation:
     'django.contrib.admindocs',
+    'debug_toolbar',
     'mediastream.assets',
     'south',
 )
@@ -145,6 +147,9 @@ LOGGING = {
         },
     }
 }
+
+# Debuggery
+INTERNAL_IPS = ('127.0.0.1',)
 
 # File storage
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
