@@ -3,6 +3,7 @@
   <link type="text/css" href="/static/jplayer.blue.monday.css" rel="stylesheet" />
   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6/jquery.min.js"></script>
   <script type="text/javascript" src="/static/jquery.jplayer.min.js"></script>
+  {% block player_script %}
   <script type="text/javascript">
     $(document).ready(function(){
       $("#jquery_jplayer_1").jPlayer({
@@ -17,8 +18,23 @@
       });
     });
   </script>
+  {% endblock %}
+  {% block player_events %}
+  <script type="text/javascript">
+    $(document).ready(function(){
+      console.log("DOM ready event fired.");
+      $("#playeralerts").text("DOM ready event fired.");
+    });
+    $("#jquery_jplayer_1").bind($.jPlayer.event.play, function(event) {
+      // does not yet work, alas
+      console.log("PLAY event fired.");
+      $("#playeralerts").text("PLAY event fired.");
+    });
+  </script>
+  {% endblock %}
 {% endblock %}
 {% block player_body %}
+  <p id="playeralerts"></p>
   <div id="jquery_jplayer_1" class="jp-jplayer"></div>
   <div id="jp_container_1" class="jp-audio">
     <div class="jp-type-single">
