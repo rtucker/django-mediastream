@@ -10,5 +10,5 @@ urlpatterns = patterns('',
     url(r'^tracks/(?P<pk>\d+)/$',
         DetailView.as_view(
             model=Track,
-            template_name="track_play.html")),
+            template_name="assets/track_play.html")),
 )
