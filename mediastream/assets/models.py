@@ -134,6 +134,14 @@ class Track(Asset):
         order_with_respect_to = 'album'
         ordering = ['disc_number', 'track_number']
 
+    def get_pretty_length(self):
+        "Returns a pretty string for track length"
+        if self.length:
+            return u"{}:{:02d}".format(self.length / 60, self.length % 60)
+        else:
+            return u"<unknown>"
+    get_pretty_length.short_description = "Length"
+
     def get_streaming_url(self, **kwargs):
         "Returns the best URL for this object."
         return self.assetfile_set.all()[0].contents.url
