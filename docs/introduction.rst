@@ -1,9 +1,12 @@
-=The Problem=
+The Problem
+-----------
+
 I have a lot of music.  I want to listen to it, explore it, and enjoy it,
 but I have many computers and mobile devices in various locations, with
 various capabilities and amounts of local storage.
 
-=Things That Don't Work, And Why=
+Things That Don't Work, And Why
+-------------------------------
 * Most local music library applications: The MP3 format stores metadata
   within each file, which is not too difficult when the music is stored
   locally.  (Most applications cache this data in a database, anyway.)
@@ -34,7 +37,8 @@ At this point, I dumped all the ID3 information to a flat file with Mp3tag,
 then used Gladinet to upload the files to Amazon S3.  (This was 5x faster
 than downloading from Amazon Cloud Drive.)
 
-=The Idea=
+The Idea
+--------
 A common theme among the failures is the fat client.  Too much work is done
 locally, far away from the files and the resource-rich servers of the cloud.
 This is fine for small collections, and leads to a faster user experience
@@ -56,8 +60,10 @@ and the user is happy.
 
 The goal of this project is to implement a similar architecture.
 
-=Architecture=
-==Server==
+Architecture
+------------
+Server
+======
 Django is the framework of choice here, as it has the flexibility to
 work with almost anything.  It could run on physical hardware in your
 bikeshed, a VPS, or probably even something like Google App Engine.
@@ -68,7 +74,8 @@ music files.
 Metadata will be stored in a database (MySQL, PostgreSQL, SQLite, whatever).
 Its template engine will be used to render the web-based UI.
 
-==Storage==
+Storage
+=======
 Initially, Amazon S3 will be used, since that is what I'm using.  However,
 the normal Django file handling stuff will be used, so really, you could
 stick the files whereever.  With S3 (and presumably others), the ability
@@ -76,7 +83,8 @@ to generate pre-authenticated URLs with a limited valid time will be used,
 rather than tromboning the file content through the server or leaving it
 open to the world.
 
-==Client==
+Client
+======
 The first client will be an Android 2.3 phone, but I'm lazy and would
 rather avoid writing specifically for one platform.  So, a HTML5-based
 experience will be used, initially with the Android browser.  jPlayer
