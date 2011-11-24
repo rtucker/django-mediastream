@@ -113,17 +113,15 @@ class Artist(Thing):
 
     def get_track_admin_links(self):
         out = u'<ul>'
-        print artists
         for track in self.track_set.all().order_by('track_number'):
             out += (u'<li><a href="{url}">Track {tn}</a>: '
-                    u'{artist}{name} ({length})</li>'
+                    u'{artist} / {name}</li>'
                    ).format(
                         url=reverse('admin:assets_track_change',
                             args=(track.id,)),
                         tn=track.get_pretty_track_number(),
-                        artist=track.artist.name + ' / ' if artists > 1 else '',
+                        artist=track.artist.name,
                         name=track.name,
-                        length=track.get_pretty_length(),
                     )
         if self.pk: out += u'<li><a href="{url}">Add new...</a></li>'.format(
                         url=reverse('admin:assets_track_add'),

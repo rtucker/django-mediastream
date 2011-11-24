@@ -104,11 +104,7 @@ def player_event_handler(request):
             break
         i = candidates[0]
         url = i.asset.track.get_streaming_url()
-        # TODO: Make this use mimetypes
-        if url.endswith('m4a'):
-            key = 'm4a'
-        else:
-            key = 'mp3'
+        key = i.asset.track.get_streaming_exten()
         d['tracks'].append({
             'title': unicode(i.asset.track),
             'free': request.user.has_perm('asset.can_download_asset'),
