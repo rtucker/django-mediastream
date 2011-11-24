@@ -2,24 +2,36 @@
 {% block player_script %}
     <script type="text/javascript" src="/static/jplayer.playlist.min.js"></script>
     <script type="text/javascript">
+    var jplaylist;
     $(document).ready(function(){
-        new jPlayerPlaylist({
+        jplaylist = new jPlayerPlaylist({
             jPlayer: "#jquery_jplayer_1",
             cssSelectorAncestor: "#jp_container_1"
         }, [
             {% for item in offer %}
             {   title:"{{ item.asset.track|escapejs }}",
                 {% if perms.assets.can_download_asset %}free:true,{% endif %}
-                mp3: "{{ item.asset.track.get_streaming_url|escapejs }}"
+                {% with item.asset.track as track %}
+                {{ track.get_streaming_exten }}: "{{ track.get_streaming_url|escapejs }}"
+                {% endwith %}
             }{% if not forloop.last %},{% endif %}
             {% endfor %}
         ], {
+            autoPlay: true,
             swfPath: "/static",
-            supplied: "mp3",
+            supplied: "m4a, mp3",
             wmode: "window" // for Firefox 3.6 compatibility
         });
     });
 </script>
+{% endblock %}
+{% block response_function %}
+            $.each(reply.tracks, function(index, value) {
+                jplaylist.add(value);
+            });
+            if(jplaylist.current > 0){
+                jplaylist.remove(0);
+            }
 {% endblock %}
 {% block player_body %}
   <p id="playeralerts"></p>

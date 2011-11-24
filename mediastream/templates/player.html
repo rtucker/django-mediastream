@@ -20,15 +20,29 @@
   </script>
   {% endblock %}
   {% block player_events %}
+  <script type="text/javascript" src="/static/ajax_csrf.js"></script>
   <script type="text/javascript">
+    var send_event = function(event){
+        var data = {
+            user:           "{{ user.id }}",
+            eventType:      event.type,
+            currentTime:    event.jPlayer.status.currentTime,
+            src:            event.jPlayer.status.src,
+            seekPercent:    event.jPlayer.status.seekPercent,
+            bufferPercent:  event.jPlayer.status.currentPercentRelative,
+            playlistLength: $(".jp-playlist > ul > li").length
+        };
+        console.log("Handling event: "+event.type);
+        $.post("{% url player_event %}", data, function(reply){
+            $("#playeralerts").text(reply.response);
+            {% block response_function %}{% endblock %}
+        });
+    };
     $(document).ready(function(){
-      console.log("DOM ready event fired.");
-      $("#playeralerts").text("DOM ready event fired.");
-    });
-    $("#jquery_jplayer_1").bind($.jPlayer.event.play, function(event) {
-      // does not yet work, alas
-      console.log("PLAY event fired.");
-      $("#playeralerts").text("PLAY event fired.");
+      $("#jquery_jplayer_1").bind($.jPlayer.event.waiting, send_event);
+      $("#jquery_jplayer_1").bind($.jPlayer.event.play, send_event);
+      $("#jquery_jplayer_1").bind($.jPlayer.event.pause, send_event);
+      $("#jquery_jplayer_1").bind($.jPlayer.event.ended, send_event);
     });
   </script>
   {% endblock %}

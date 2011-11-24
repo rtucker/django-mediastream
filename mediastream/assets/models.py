@@ -149,23 +149,16 @@ class Album(Thing):
                         help_text="Quantity of discs in the set.")
 
     def get_track_admin_links(self):
-        artists = self.get_artist_count()
-        out = ''
-        if artists > 1 and not self.is_compilation:
-            out += u'<p><b>This seems like a compilation, does it not?</b></p>'
-
-        out += u'<ul>'
-        print artists
+        out = u'<ul>'
         for track in self.track_set.all().order_by('track_number'):
             out += (u'<li><a href="{url}">Track {tn}</a>: '
-                    u'{artist}{name} ({length})</li>'
+                    u'{artist} / {name}</li>'
                    ).format(
                         url=reverse('admin:assets_track_change',
                             args=(track.id,)),
                         tn=track.get_pretty_track_number(),
-                        artist=track.artist.name + ' / ' if artists > 1 else '',
+                        artist=track.artist.name,
                         name=track.name,
-                        length=track.get_pretty_length(),
                     )
         if self.pk: out += u'<li><a href="{url}">Add new...</a></li>'.format(
                         url=reverse('admin:assets_track_add'),
@@ -217,3 +210,6 @@ class Track(Asset):
     def get_streaming_url(self, **kwargs):
         "Returns the best URL for this object."
         return self.assetfile_set.all()[0].contents.url
+
+    def get_streaming_exten(self, **kwargs):
+        return self.assetfile_set.all()[0].contents.name[-3:]

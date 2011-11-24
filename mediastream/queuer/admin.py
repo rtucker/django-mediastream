@@ -3,10 +3,10 @@ from mediastream.queuer.models import AssetQueue, AssetQueueItem
 
 class AssetQueueItemInline(admin.TabularInline):
     model = AssetQueueItem
+    raw_id_fields = ['asset']
 
 class AssetQueueAdmin(admin.ModelAdmin):
     inlines = [
         AssetQueueItemInline,
     ]
 admin.site.register(AssetQueue, AssetQueueAdmin)
-
