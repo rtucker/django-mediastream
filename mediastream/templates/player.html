@@ -30,19 +30,25 @@
             src:            event.jPlayer.status.src,
             seekPercent:    event.jPlayer.status.seekPercent,
             bufferPercent:  event.jPlayer.status.currentPercentRelative,
+            mediaPk:        event.jPlayer.status.media.pk,
             playlistLength: $(".jp-playlist > ul > li").length
         };
-        console.log("Handling event: "+event.type);
+        if (event.type == 'jPlayer_error'){
+            data.errorType = event.jPlayer.error.type;
+            data.errorMsg = event.jPlayer.error.message;
+        }
         $.post("{% url player_event %}", data, function(reply){
             $("#playeralerts").text(reply.response);
             {% block response_function %}{% endblock %}
         });
     };
     $(document).ready(function(){
-      $("#jquery_jplayer_1").bind($.jPlayer.event.waiting, send_event);
-      $("#jquery_jplayer_1").bind($.jPlayer.event.play, send_event);
-      $("#jquery_jplayer_1").bind($.jPlayer.event.pause, send_event);
-      $("#jquery_jplayer_1").bind($.jPlayer.event.ended, send_event);
+      $("#jquery_jplayer_1").bind($.jPlayer.event.ended,      send_event);
+      $("#jquery_jplayer_1").bind($.jPlayer.event.error,      send_event);
+      $("#jquery_jplayer_1").bind($.jPlayer.event.canplaythrough, send_event);
+      $("#jquery_jplayer_1").bind($.jPlayer.event.pause,      send_event);
+      $("#jquery_jplayer_1").bind($.jPlayer.event.play,       send_event);
+      $("#jquery_jplayer_1").bind($.jPlayer.event.waiting,    send_event);
     });
   </script>
   {% endblock %}

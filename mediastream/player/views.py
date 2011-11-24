@@ -6,7 +6,7 @@ from django.template import RequestContext
 from django.utils import simplejson
 
 from mediastream.assets.models import AssetFile
-from mediastream.queuer.models import AssetQueue
+from mediastream.queuer.models import AssetQueue, AssetQueueItem
 
 import urllib
 import urlparse
@@ -30,87 +30,118 @@ def music_player(request):
     queue.item_set.filter(state='playing').update(state='waiting')
 
     request.session['active_queue'] = queue
-    offer = queue.get_offer_set()
-    for i in offer:
-        i.state = 'offered'
-        i.save()
+    request.session['first_refresh'] = True
+    context = {'offer': []}
 
-    context = {
-        'offer': offer,
-    }
+    next_track = queue.item_set.filter(state__in=['waiting', 'offered'])[0]
+    request.session['last_known_playing'] = next_track
+
+    while len(context['offer']) < 3:
+        try:
+            if next_track.state not in ['waiting', 'offered']:
+                next_track = next_track.get_next_in_order()
+                continue
+            if not request.user.has_perm('asset.can_stream_asset', next_track.asset):
+                next_track = next_track.get_next_in_order()
+                continue
+            url = next_track.asset.track.get_streaming_url()
+            key = next_track.asset.track.get_streaming_exten()
+            context['offer'].append(next_track)
+            next_track.state = 'offered'
+            next_track.save()
+            request.session['last_track_offered'] = next_track
+            next_track = next_track.get_next_in_order()
+
+        except AssetQueueItem.DoesNotExist:
+            break
 
     return render_to_response('player/queue_play.html', context, context_instance=RequestContext(request))
 
 @login_required
 def player_event_handler(request):
     post = request.POST.copy()
-    if 'src' in post:
-        filepath = urlparse.urlparse(post['src']).path
-        qs = AssetFile.objects.filter(contents__contains=urllib.unquote(filepath).strip('/'))
-    else:
-        qs = AssetFile.objects.none()
 
-    if qs.exists():
-        current_track = qs[0]
-        current_name = current_track.asset.track.name
-        current_artist = current_track.asset.track.artist
-    else:
-        current_track = None
-        current_name = 'unknown'
-        current_artist = 'unknown'
-
+    # Determine client state
+    current_track = AssetQueueItem.objects.get(pk=post['mediaPk'])
+    current_name = current_track.asset.track.name
+    current_artist = current_track.asset.track.artist
     player_state = post.get('eventType', 'jPlayer_unknown')
-
     remaining = int(post.get('playlistLength', 0))
-
-    d = {'response': ('Hello, {}.  You are listening to {} by {}.').format(
-            request.user,
-            current_name,
-            current_artist,
-        )}
 
     # Handle session love
     queue = request.session.get('active_queue', None)
-    if not queue:
+    offer_pointer = request.session.get('last_track_offered', None)
+    last_known_playing = request.session.get('last_known_playing', None)
+
+    # Start building response
+    d = {'response':    ('Hello, {}.  You are listening to {} by {}.').format(
+                            request.user.first_name or request.user.username,
+                            current_name,
+                            current_artist,
+                            ),
+         'tracks':      [],
+        }
+
+    if not queue or not offer_pointer or not last_known_playing:
         d['response'] = ("I'm sorry, but please reload this page when "
                          "you get a chance.")
+        return HttpResponse(simplejson.dumps(d), mimetype="application/json")
 
-    # Make sure our current song state is right
-    all_offered = queue.item_set.filter(state__in=['offered', 'playing'])
-    for i in all_offered:
-        if not current_track:
-            break
-        if player_state == 'jPlayer_play':
-            if i.state == 'playing' and i.asset != current_track.asset:
-                # :-(
-                i.state = 'skipped'
-                i.save()
-            elif i.asset == current_track.asset:
-                i.state = 'playing'
-                i.save()
-                break
-        elif player_state == 'jPlayer_ended':
-            if i.asset == current_track.asset:
-                i.state = 'played'
-                i.save()
-                break
+    # Handle client states
+    if player_state == 'jPlayer_play':
+        # Player is currently playing.
+        if request.session.get('first_refresh', False):
+            last_known_playing.state = 'playing'
+            last_known_playing.save()
+            request.session['first_refresh'] = False
+        if current_track.asset != last_known_playing.asset:
+            if last_known_playing.state == 'playing':
+                # We should have received an ended notification
+                last_known_playing.state = 'skipped'
+                last_known_playing.save()
+            elif last_known_playing.state != 'played':
+                last_known_playing.state = 'played'
+                last_known_playing.save()
+            last_known_playing = last_known_playing.get_next_in_order()
+            last_known_playing.state = 'playing'
+            last_known_playing.save()
+
+    if player_state == 'jPlayer_ended':
+        last_known_playing.state == 'played'
+        last_known_playing.save()
+
+    if player_state == 'jPlayer_error':
+        # oh no!
+        d['response'] += u"  Error {} occurred: {}".format(post.get('errorType', 'unknown'), post.get('errorMsg', 'no msg'))
+        current_track.state = 'fileerror'
+        current_track.save()
 
     # Top off the user's playlist
-    d['tracks'] = []
     while len(d['tracks']) + remaining < 3:
-        candidates = queue.item_set.filter(state='waiting')
-        if not candidates.exists():
+        try:
+            next_track = offer_pointer.get_next_in_order()
+            if next_track.state not in ['waiting', 'offered']:
+                continue
+            if not request.user.has_perm('asset.can_stream_asset', next_track.asset):
+                continue
+            url = next_track.asset.track.get_streaming_url()
+            key = next_track.asset.track.get_streaming_exten()
+            d['tracks'].append({
+                'pk': next_track.pk,
+                'title': unicode(next_track.asset.track),
+                'free': request.user.has_perm('asset.can_download_asset', next_track.asset),
+                key: url,
+            })
+            next_track.state = 'offered'
+            next_track.save()
+            offer_pointer = next_track
+
+        except AssetQueueItem.DoesNotExist:
+            # queue is empty!
             d['response'] += u"  You're almost out of music in this queue."
             break
-        i = candidates[0]
-        url = i.asset.track.get_streaming_url()
-        key = i.asset.track.get_streaming_exten()
-        d['tracks'].append({
-            'title': unicode(i.asset.track),
-            'free': request.user.has_perm('asset.can_download_asset'),
-            key: url
-        })
-        i.state = 'offered'
-        i.save()
 
+    # God save the state
+    request.session['last_known_playing'] = last_known_playing
+    request.session['offer_pointer'] = offer_pointer
     return HttpResponse(simplejson.dumps(d), mimetype="application/json")

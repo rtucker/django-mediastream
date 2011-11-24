@@ -1,6 +1,7 @@
 {% extends "player.html" %}
 {% block player_setmedia %}
-    mp3: "{{ object.get_streaming_url|escapejs }}"
+    mp3: "{{ object.get_streaming_url|escapejs }}",
+    pk: "{{ object.pk }}"
 {% endblock %}
 {% block player_textbox %}
     <ul>

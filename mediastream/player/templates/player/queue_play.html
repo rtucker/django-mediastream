@@ -10,6 +10,8 @@
         }, [
             {% for item in offer %}
             {   title:"{{ item.asset.track|escapejs }}",
+                artist:"{{ item.asset.artist.name|escapejs }}",
+                pk:"{{ item.pk }}",
                 {% if perms.assets.can_download_asset %}free:true,{% endif %}
                 {% with item.asset.track as track %}
                 {{ track.get_streaming_exten }}: "{{ track.get_streaming_url|escapejs }}"
@@ -17,9 +19,11 @@
             }{% if not forloop.last %},{% endif %}
             {% endfor %}
         ], {
-            autoPlay: true,
-            swfPath: "/static",
+            playlistOptions: {
+                autoPlay: true
+            },
             supplied: "m4a, mp3",
+            swfPath: "/static",
             wmode: "window" // for Firefox 3.6 compatibility
         });
     });
