@@ -164,7 +164,7 @@ AWS_DEFAULT_ACL = 'private'
 AWS_AUTO_CREATE_BUCKET=True
 AWS_REDUCED_REDUNDANCY=False
 AWS_HEADERS = {
-    'Cache-Control': 'private, max-age=86400',
+    'Cache-Control': 'private, max-age=604800',
 }
 
 # Static file storage
@@ -174,8 +174,7 @@ AWS_STATIC_DEFAULT_ACL='public-read'
 AWS_STATIC_REDUCED_REDUNDANCY=True
 AWS_STATIC_IS_GZIPPED=True
 AWS_STATIC_HEADERS = {
-    # Once things stabilize, this can be cranked up
-    'Cache-Control': 'public, max-age=0',
+    'Cache-Control': 'public, max-age=604800',
 } 
 
 # Local settings
