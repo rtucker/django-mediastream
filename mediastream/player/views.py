@@ -138,6 +138,7 @@ def player_event_handler(request):
             key = next_track.asset.track.get_streaming_exten()
             d['tracks'].append({
                 'pk': next_track.pk,
+                'artist': unicode(next_track.asset.track.artist),
                 'title': unicode(next_track.asset.track),
                 'free': request.user.has_perm('asset.can_download_asset', next_track.asset),
                 key: url,
