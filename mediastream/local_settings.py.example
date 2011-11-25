@@ -2,9 +2,9 @@
 AWS_ACCESS_KEY_ID=""
 AWS_SECRET_ACCESS_KEY=""
 AWS_STORAGE_BUCKET_NAME=""
-ASSETS_UPLOAD_TO = '/working'
+AWS_STATIC_STORAGE_BUCKET_NAME=""
 
 # Local settings
 INTERNAL_IPS = ('2001:db8::dead:beef', '127.0.0.1',)
-TEMPLATE_DIRS = ('/home/rtucker/dev/django-mediastream/mediastream/templates',)
-STATICFILES_DIRS = ('/home/rtucker/dev/django-mediastream/mediastream/static',)
+TEMPLATE_DIRS = ('/home/urmom/dev/django-mediastream/mediastream/templates',)
+STATICFILES_DIRS = ('/home/urmom/dev/django-mediastream/mediastream/static',)

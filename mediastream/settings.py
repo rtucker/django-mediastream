@@ -60,12 +60,12 @@ STATIC_ROOT = ''
 
 # URL prefix for static files.
 # Example: "http://media.lawrence.com/static/"
-STATIC_URL = '/static/'
+# MOVED to the bottom, after local_settings include
 
 # URL prefix for admin static files -- CSS, JavaScript and images.
 # Make sure to use a trailing slash.
 # Examples: "http://foo.com/static/admin/", "/static/admin/".
-ADMIN_MEDIA_PREFIX = '/static/admin/'
+# MOVED to the bottom, after local_settings include
 
 # Additional locations of static files
 STATICFILES_DIRS = (
@@ -126,6 +126,7 @@ INSTALLED_APPS = (
     'mediastream.assets',
     'mediastream.player',
     'mediastream.queuer',
+    'mediastream.utilities',
 )
 
 # A sample logging configuration. The only tangible logging
@@ -155,9 +156,27 @@ LOGGING = {
 INTERNAL_IPS = ('127.0.0.1',)
 
 # File storage
+# See AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME
+# in local_settings.py
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
 ASSETS_UPLOAD_TO = '/'
 AWS_DEFAULT_ACL = 'private'
+AWS_AUTO_CREATE_BUCKET=True
+AWS_REDUCED_REDUNDANCY=False
+AWS_HEADERS = {
+    'Cache-Control': 'private, max-age=86400',
+}
+
+# Static file storage
+# See AWS_STATIC_STORAGE_BUCKET_NAME in local_settings.py
+STATICFILES_STORAGE = 'mediastream.utilities.s3static.S3StaticStorage'
+AWS_STATIC_DEFAULT_ACL='public-read'
+AWS_STATIC_REDUCED_REDUNDANCY=True
+AWS_STATIC_IS_GZIPPED=True
+AWS_STATIC_HEADERS = {
+    # Once things stabilize, this can be cranked up
+    'Cache-Control': 'public, max-age=0',
+} 
 
 # Local settings
 try:
@@ -165,3 +184,5 @@ try:
 except ImportError:
     pass
 
+STATIC_URL = '//{}.s3.amazonaws.com/'.format(AWS_STATIC_STORAGE_BUCKET_NAME)
+ADMIN_MEDIA_PREFIX = STATIC_URL + 'admin/'
