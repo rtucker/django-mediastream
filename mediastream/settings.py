@@ -60,12 +60,12 @@ STATIC_ROOT = ''
 
 # URL prefix for static files.
 # Example: "http://media.lawrence.com/static/"
-# MOVED to the bottom, after local_settings include
+STATIC_URL = '/static/'     # note: gets reset by local_settings
 
 # URL prefix for admin static files -- CSS, JavaScript and images.
 # Make sure to use a trailing slash.
 # Examples: "http://foo.com/static/admin/", "/static/admin/".
-# MOVED to the bottom, after local_settings include
+ADMIN_MEDIA_PREFIX = '/static/admin/'   # note: gets reset by local_settings
 
 # Additional locations of static files
 STATICFILES_DIRS = (
@@ -181,8 +181,7 @@ AWS_STATIC_HEADERS = {
 # Local settings
 try:
     from local_settings import *
-except ImportError:
+    STATIC_URL = '//{0}.s3.amazonaws.com/'.format(AWS_STATIC_STORAGE_BUCKET_NAME)
+    ADMIN_MEDIA_PREFIX = STATIC_URL + 'admin/'
+except ImportError, NameError:
     pass
-
-STATIC_URL = '//{}.s3.amazonaws.com/'.format(AWS_STATIC_STORAGE_BUCKET_NAME)
-ADMIN_MEDIA_PREFIX = STATIC_URL + 'admin/'
