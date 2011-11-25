@@ -16,7 +16,7 @@ class AssetQueue(models.Model):
     modified = models.DateTimeField(auto_now=True)
 
     def __unicode__(self):
-        return u"Queue {} created by {} at {}".format(self.pk, self.user, self.created)
+        return u"Queue {0} created by {1} at {2}".format(self.pk, self.user, self.created)
 
 class AssetQueueItem(models.Model):
     STATE_CHOICES = (
@@ -47,7 +47,7 @@ class AssetQueueItem(models.Model):
         ordering = ['created']
 
     def __unicode__(self):
-        return u"Item {} in {} ({})".format(self.pk, self.queue,
+        return u"Item {0} in {1} ({2})".format(self.pk, self.queue,
                                             self.get_state_display())
 
     @property

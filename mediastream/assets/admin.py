@@ -84,7 +84,7 @@ class TrackAdmin(admin.ModelAdmin):
 
     def get_pretty_length(self, obj):
         if obj.length:
-            return u"{}:{:02d}".format(obj.length / 60, obj.length % 60)
+            return u"{0}:{1:02d}".format(obj.length / 60, obj.length % 60)
     get_pretty_length.short_description = 'length'
     get_pretty_length.admin_order_field = 'length'
 

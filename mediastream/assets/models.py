@@ -50,11 +50,11 @@ class AssetFile(Thing):
     @property
     def filename(self):
         if hasattr(self.asset, 'track'):
-            return u"{}{}".format(self.asset.track.name,
+            return u"{0}{1}".format(self.asset.track.name,
                                   mimetypes.guess_extension(
                                     self.mimetype, False))
         else:
-            return u"{}{}".format(self.name,
+            return u"{0}{1}".format(self.name,
                                   mimetypes.guess_extension(
                                     self.mimetype, False))
 
@@ -192,15 +192,15 @@ class Track(Asset):
         ordering                = ['disc_number', 'track_number']
 
     def get_display_name(self):
-        return u'{} - {}'.format(self.artist, self.name)
+        return u'{0} - {1}'.format(self.artist, self.name)
 
     def get_pretty_track_number(self):
         dn = self.disc_number if (self.disc_number and
                                 self.disc_number > 0) else None
         tn = self.track_number if (self.track_number and
                                 self.track_number > 0) else None
-        if dn and tn: return u"{}/{}".format(dn, tn)
-        elif tn:      return u"{}".format(tn)
+        if dn and tn: return u"{0}/{1}".format(dn, tn)
+        elif tn:      return u"{0}".format(tn)
         else:         return u""
     get_pretty_track_number.short_description = 'track number'
     get_pretty_track_number.admin_order_field = 'track_number'

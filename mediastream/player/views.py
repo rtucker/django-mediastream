@@ -81,7 +81,7 @@ def player_event_handler(request):
     remaining = int(post.get('playlistLength', 0))
 
     # Start building response
-    d = {'response':    ('Hello, {}.  You are listening to {} by {}.').format(
+    d = {'response':    ('Hello, {0}.  You are listening to {1} by {2}.').format(
                             request.user.first_name or request.user.username,
                             current_name,
                             current_artist,
@@ -101,15 +101,12 @@ def player_event_handler(request):
             last_known_playing.state = 'playing'
             last_known_playing.save()
             request.session['first_refresh'] = False
-            d["debug"] = 'first_refresh handled'
         if current_track.asset != last_known_playing.asset:
             if last_known_playing.state == 'playing':
                 # We should have received an ended notification
-                d["debug"] = 'skipped: current_track {}, last_known_playing {}'.format(current_track, last_known_playing)
                 last_known_playing.state = 'skipped'
                 last_known_playing.save()
             elif last_known_playing.state != 'played':
-                d["debug"] = 'changing {} from {} to played'.format(last_known_playing, last_known_playing.state)
                 last_known_playing.state = 'played'
                 last_known_playing.save()
             last_known_playing = current_track
@@ -117,13 +114,12 @@ def player_event_handler(request):
             last_known_playing.save()
 
     if player_state == 'jPlayer_ended':
-        d["debug"] = 'changing {} from {} to played'.format(current_track, current_track.state)
         current_track.state = 'played'
         current_track.save()
 
     if player_state == 'jPlayer_error':
         # oh no!
-        d['response'] += u"  Error {} occurred: {}".format(
+        d['response'] += u"  Error {0} occurred: {1}".format(
                     post.get('errorType', 'unknown'),
                     post.get('errorMsg', 'no msg'))
         current_track.state = 'fileerror'
