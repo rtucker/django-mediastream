@@ -11,10 +11,10 @@ class Migration(SchemaMigration):
         if db.dry_run:
             ct = 1
         else:
-            ct = orm['contenttypes.ContentType'].objects.get(app_label='assets', model='track')
+            ct = orm['contenttypes.ContentType'].objects.get(app_label='assets', model='track').pk
 
         # Adding field 'AssetQueueItem.content_type'
-        db.add_column('queuer_assetqueueitem', 'content_type', self.gf('django.db.models.fields.related.ForeignKey')(default=ct.pk, to=orm['contenttypes.ContentType']), keep_default=False)
+        db.add_column('queuer_assetqueueitem', 'content_type', self.gf('django.db.models.fields.related.ForeignKey')(default=ct, to=orm['contenttypes.ContentType']), keep_default=False)
 
         # Adding field 'AssetQueueItem.object_id'
         db.add_column('queuer_assetqueueitem', 'object_id', self.gf('django.db.models.fields.PositiveIntegerField')(default=0), keep_default=False)
