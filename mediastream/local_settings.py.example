@@ -8,3 +8,6 @@ AWS_STATIC_STORAGE_BUCKET_NAME=""
 INTERNAL_IPS = ('2001:db8::dead:beef', '127.0.0.1',)
 TEMPLATE_DIRS = ('/home/urmom/dev/django-mediastream/mediastream/templates',)
 STATICFILES_DIRS = ('/home/urmom/dev/django-mediastream/mediastream/static',)
+
+# Database
+## SET YOUR DATABASE STUFF!

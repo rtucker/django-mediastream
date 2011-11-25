@@ -1,0 +1,38 @@
+# Make Media Fast by Sending Bulk Commands to Shell Interpreters
+
+# Create system user
+adduser --system --group mediastream
+sudo chsh mediastream --shell /bin/bash
+
+# Become this user for a bit
+sudo -u mediastream -i
+
+# Clone the repo
+git clone git://github.com/rtucker/django-mediastream.git
+
+# Create the virtualenv
+cd django-mediastream
+virtualenv --no-site-packages env
+source env/bin/activate
+
+# Install the requirements
+pip install --requirement=requirements.txt
+
+# Do the local config
+cd mediastream
+cp --no-clobber local_settings.py.example local_settings.py
+vi local_settings.py
+    # be sure to set DATABASES here too
+
+# Make the database happy
+#pip install MySQL-python  # apt-get install libmysqlclient-dev python-dev
+python manage.py syncdb
+#(create a superuser if you want)
+python manage.py migrate
+
+# Collect the static media
+python manage.py collectstatic
+
+# Run it!
+gunicorn_django
+
