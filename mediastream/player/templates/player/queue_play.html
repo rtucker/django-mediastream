@@ -1,6 +1,6 @@
 {% extends "player.html" %}
 {% block player_script %}
-    <script type="text/javascript" src="/static/jplayer.playlist.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}jplayer.playlist.min.js"></script>
     <script type="text/javascript">
     var jplaylist;
     $(document).ready(function(){
@@ -23,7 +23,7 @@
                 autoPlay: true
             },
             supplied: "m4a, mp3",
-            swfPath: "/static",
+            swfPath: "{{ STATIC_URL }}",
             wmode: "window" // for Firefox 3.6 compatibility
         });
     });

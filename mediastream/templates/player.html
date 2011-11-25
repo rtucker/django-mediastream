@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block player_head %}
-  <link type="text/css" href="/static/jplayer.blue.monday.css" rel="stylesheet" />
+  <link type="text/css" href="{{ STATIC_URL }}jplayer.blue.monday.css" rel="stylesheet" />
   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6/jquery.min.js"></script>
-  <script type="text/javascript" src="/static/jquery.jplayer.min.js"></script>
+  <script type="text/javascript" src="{{ STATIC_URL }}jquery.jplayer.min.js"></script>
   {% block player_script %}
   <script type="text/javascript">
     $(document).ready(function(){
@@ -12,7 +12,7 @@
             {% block player_setmedia %}{% endblock %}
           });
         },
-        swfPath: "/static",
+        swfPath: "{{ STATIC_URL }}",
         supplied: "mp3",
         wmode: "window" // for Firefox 3.6 compatibility
       });
@@ -20,7 +20,7 @@
   </script>
   {% endblock %}
   {% block player_events %}
-  <script type="text/javascript" src="/static/ajax_csrf.js"></script>
+  <script type="text/javascript" src="{{ STATIC_URL }}ajax_csrf.js"></script>
   <script type="text/javascript">
     var send_event = function(event){
         var data = {
