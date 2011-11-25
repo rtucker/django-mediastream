@@ -7,8 +7,12 @@ from django.db import models
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
-       
-        ct = orm['contenttypes.ContentType'].objects.get(app_label='assets', model='track')
+
+        if db.dry_run:
+            ct = 1
+        else:
+            ct = orm['contenttypes.ContentType'].objects.get(app_label='assets', model='track')
+
         # Adding field 'AssetQueueItem.content_type'
         db.add_column('queuer_assetqueueitem', 'content_type', self.gf('django.db.models.fields.related.ForeignKey')(default=ct.pk, to=orm['contenttypes.ContentType']), keep_default=False)
 
