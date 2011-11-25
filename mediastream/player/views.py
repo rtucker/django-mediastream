@@ -39,10 +39,10 @@ def music_player(request):
     while len(context['offer']) < 3:
         try:
             if next_track.state not in ['waiting', 'offered']:
-                next_track = next_track.get_next_in_order()
+                next_track = next_track.get_next_by_created()
                 continue
             if not request.user.has_perm('asset.can_stream_asset', next_track.asset):
-                next_track = next_track.get_next_in_order()
+                next_track = next_track.get_next_by_created()
                 continue
             url = next_track.asset.track.get_streaming_url()
             key = next_track.asset.track.get_streaming_exten()
@@ -50,7 +50,7 @@ def music_player(request):
             next_track.state = 'offered'
             next_track.save()
             request.session['last_track_offered'] = next_track
-            next_track = next_track.get_next_in_order()
+            next_track = next_track.get_next_by_created()
 
         except AssetQueueItem.DoesNotExist:
             break
@@ -128,7 +128,7 @@ def player_event_handler(request):
     # Top off the user's playlist
     while len(d['tracks']) + remaining < 3:
         try:
-            next_track = offer_pointer.get_next_in_order()
+            next_track = offer_pointer.get_next_by_created()
             offer_pointer = next_track
             if next_track.state != 'waiting':
                 continue
