@@ -4,6 +4,11 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from mediastream.assets.models import Asset, Album, Track
 
+try:
+    aqi_default_ct = ContentType.objects.get_for_model(Track)
+except:
+    aqi_default_ct = 1
+
 class AssetQueue(models.Model):
     "Stores an ordered play list of assets."
     user = models.ForeignKey(User)
@@ -25,7 +30,7 @@ class AssetQueueItem(models.Model):
 
     queue = models.ForeignKey(AssetQueue, related_name='item_set')
     content_type = models.ForeignKey(ContentType,
-        default=ContentType.objects.get_for_model(Track),
+        default=aqi_default_ct,
         limit_choices_to = {"model__in": ('track', 'album')},
         verbose_name = "Media type",
     )
