@@ -120,6 +120,7 @@ INSTALLED_APPS = (
     'django.contrib.admindocs',
     # third-party stuff
     'debug_toolbar',
+    'gunicorn',
     'south',
     # our applications
     'mediastream.assets',
