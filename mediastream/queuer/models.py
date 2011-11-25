@@ -53,3 +53,15 @@ class AssetQueueItem(models.Model):
     @property
     def asset(self):
         return self.asset_object
+
+    def save(self, *args, **kwargs):
+        if self.content_type.model == 'album':
+            # Explode the album.
+            for track in self.asset_object.track_set.order_by('track_number'):
+                AssetQueueItem.objects.create(
+                    queue = self.queue,
+                    asset_object = track,
+                    state = 'waiting',
+                )
+            return
+        super(AssetQueueItem, self).save(*args, **kwargs)
