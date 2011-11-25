@@ -40,7 +40,7 @@ class Asset(Thing):
 class AssetFile(Thing):
     "Describes an underlying file for an Asset."
     asset       = models.ForeignKey(Asset)
-    contents    = models.FileField(upload_to=_get_upload_path)
+    contents    = models.FileField(upload_to=_get_upload_path, max_length=255)
     mimetype    = models.CharField(max_length=255, choices=MIMETYPE_CHOICES,
                                    blank=True, verbose_name="MIME type")
 
