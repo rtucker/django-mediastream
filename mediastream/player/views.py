@@ -59,19 +59,26 @@ def music_player(request):
 
 @login_required
 def player_event_handler(request):
+    "Handles AJAX events from the client."
     post = request.POST.copy()
-
-    # Determine client state
-    current_track = AssetQueueItem.objects.get(pk=post['mediaPk'])
-    current_name = current_track.asset.track.name
-    current_artist = current_track.asset.track.artist
-    player_state = post.get('eventType', 'jPlayer_unknown')
-    remaining = int(post.get('playlistLength', 0))
 
     # Handle session love
     queue = request.session.get('active_queue', None)
     offer_pointer = request.session.get('last_track_offered', None)
-    last_known_playing = request.session.get('last_known_playing', None)
+    last_known_playing_pk = request.session.get('last_known_playing', None).pk
+    last_known_playing = AssetQueueItem.objects.get(pk=last_known_playing_pk)
+
+    # Determine client state
+    player_state = post.get('eventType', 'jPlayer_unknown')
+
+    if 'mediaPk' in post:
+        current_track = AssetQueueItem.objects.get(pk=post['mediaPk'])
+    else:
+        current_track = last_known_playing
+
+    current_name = current_track.asset.track.name
+    current_artist = current_track.asset.track.artist
+    remaining = int(post.get('playlistLength', 0))
 
     # Start building response
     d = {'response':    ('Hello, {}.  You are listening to {} by {}.').format(
@@ -94,25 +101,31 @@ def player_event_handler(request):
             last_known_playing.state = 'playing'
             last_known_playing.save()
             request.session['first_refresh'] = False
+            d["debug"] = 'first_refresh handled'
         if current_track.asset != last_known_playing.asset:
             if last_known_playing.state == 'playing':
                 # We should have received an ended notification
+                d["debug"] = 'skipped: current_track {}, last_known_playing {}'.format(current_track, last_known_playing)
                 last_known_playing.state = 'skipped'
                 last_known_playing.save()
             elif last_known_playing.state != 'played':
+                d["debug"] = 'changing {} from {} to played'.format(last_known_playing, last_known_playing.state)
                 last_known_playing.state = 'played'
                 last_known_playing.save()
-            last_known_playing = last_known_playing.get_next_in_order()
+            last_known_playing = current_track
             last_known_playing.state = 'playing'
             last_known_playing.save()
 
     if player_state == 'jPlayer_ended':
-        last_known_playing.state == 'played'
-        last_known_playing.save()
+        d["debug"] = 'changing {} from {} to played'.format(current_track, current_track.state)
+        current_track.state = 'played'
+        current_track.save()
 
     if player_state == 'jPlayer_error':
         # oh no!
-        d['response'] += u"  Error {} occurred: {}".format(post.get('errorType', 'unknown'), post.get('errorMsg', 'no msg'))
+        d['response'] += u"  Error {} occurred: {}".format(
+                    post.get('errorType', 'unknown'),
+                    post.get('errorMsg', 'no msg'))
         current_track.state = 'fileerror'
         current_track.save()
 
@@ -120,7 +133,8 @@ def player_event_handler(request):
     while len(d['tracks']) + remaining < 3:
         try:
             next_track = offer_pointer.get_next_in_order()
-            if next_track.state not in ['waiting', 'offered']:
+            offer_pointer = next_track
+            if next_track.state != 'waiting':
                 continue
             if not request.user.has_perm('asset.can_stream_asset', next_track.asset):
                 continue
@@ -134,7 +148,6 @@ def player_event_handler(request):
             })
             next_track.state = 'offered'
             next_track.save()
-            offer_pointer = next_track
 
         except AssetQueueItem.DoesNotExist:
             # queue is empty!
