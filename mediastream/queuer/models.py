@@ -43,8 +43,7 @@ class AssetQueueItem(models.Model):
     modified = models.DateTimeField(auto_now=True)
 
     class Meta:
-        order_with_respect_to = 'queue'
-        ordering = ['created']
+        ordering = ['id']
 
     def __unicode__(self):
         return u"Item {0} in {1} ({2})".format(self.pk, self.queue,
