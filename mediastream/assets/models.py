@@ -71,7 +71,7 @@ class AssetFile(Thing):
                         text=unicode(descriptor), **descriptor.__dict__
                         )
             if descriptor.is_vbr: out += (u', VBR')
-            if not descriptor.lossy: out += (u', lossless')
+            if descriptor.lossy is False: out += (u', lossless')
             out += u'</li>'
         out += u'</ul>'
         if self.pk: out += u'<a href="{url}">Add new</a> (advanced)'.format(
