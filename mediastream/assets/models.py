@@ -97,12 +97,20 @@ class AssetFile(Thing):
         id3obj = ID3File(self.contents)
         # This is actually a remarkably grody object.
         # See http://code.google.com/p/mutagen/source/browse/trunk/mutagen/easyid3.py
+        # For future use:
+        #   TPE1    =   Lead Artist/Performer/Soloist/Group
+        #   TPE2    =   Band/Orchestra/Accompaniment
+        #   TCON    =   Content Type (Genre)
+
+        # Start scanning individual tags.
+        # TIT2 = Title
         if 'TIT2' in id3obj:
             self.asset.name = id3obj.get('TIT2').text[0]
 
+        # APIC = Attached Picture
         apic = id3obj.getall('APIC')
         if apic:
-            # hot dang, we have an artist pic
+            # We have a picture!  Extract it onto its own AssetFile.
             apic_obj, apic_created = AssetFile.objects.get_or_create(
                 asset = self.asset,
                 mimetype = apic[0].mime,
@@ -116,19 +124,24 @@ class AssetFile(Thing):
             apic_obj.contents.save(apic_obj_fn, ContentFile(apic[0].data))
             apic_obj.save()
 
+        # TDRC = Recording Time
         if 'TDRC' in id3obj:
-            # special case: date
             try:
+                # Extract the year, if sensible.
                 self.asset.track.year = int(id3obj['TDRC'].text[0].year)
             except:
                 pass
 
+        # TRCK = Track Number
         if 'TRCK' in id3obj:
-            # Track number
+            # With mutagen, the text element is in the form x/y, with
+            # x as the track number and y as the total number of tracks.
+            # Taking the positive of it (__pos__) gets just x.
             self.asset.track.track_number = +id3obj.get('TRCK')
 
+        # TPOS = Part of Set
         if 'TPOS' in id3obj:
-            # Part of set
+            # Same as TRCK handling.
             self.asset.track.disc_number = +id3obj.get('TPOS')
 
         ad.save()
