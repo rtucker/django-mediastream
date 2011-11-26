@@ -51,7 +51,7 @@ class AssetFile(Thing):
 
     @property
     def filename(self):
-        if hasattr(self.asset, 'track'):
+        if hasattr(self.asset, 'track') and self.mimetype.startswith('audio'):
             return u"{0}{1}".format(self.asset.track.name,
                                   mimetypes.guess_extension(
                                     self.mimetype, False))
