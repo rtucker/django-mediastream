@@ -5,10 +5,11 @@ from django.db import models
 from django.db.models import Avg, Max, Min, Count
 
 import mimetypes
+from mutagen.m4a import M4ACover
 from mutagen.mp3 import MPEGInfo
 
 from mediastream.assets import MIMETYPE_CHOICES, _get_upload_path
-from mediastream.utilities.mediainspector import ID3File
+from mediastream.utilities.mediainspector import ID3File, M4AFile
 
 class Thing(models.Model):
     "Abstract base class for things with names."
@@ -81,6 +82,83 @@ class AssetFile(Thing):
     get_descriptor_admin_links.allow_tags = True
     get_descriptor_admin_links.short_description = 'Stream descriptors'
 
+    def _inspect_m4a(self):
+        "Cracks open an M4A file and determines what is inside."
+        self.contents.seek(0)
+        m4aobj = M4AFile(self.contents)
+        ad, created = self.assetdescriptor_set.get_or_create(bitstream=0)
+        self.length = m4aobj.info.length
+        self.mimetype = ad.mimetype = "audio/mp4"
+        ad.bit_rate = m4aobj.info.bitrate
+        ad.lossy = True
+
+        self.save()
+        ad.save()
+
+        track_dirty = False
+        album_dirty = False
+
+        # For future use:
+        #   \xa9alb =   Album name
+        #   \xa9ART =   Artist name
+        #   \xa9gen =   Genre
+
+        if '\xa9day' in m4aobj:
+            # Date (year?)
+            try:
+                self.asset.track.year = int(m4aobj.get('\xa9day'))
+                track_dirty = True
+            except:
+                pass
+
+        if '\xa9nam' in m4aobj:
+            # Track name
+            self.asset.track.name = m4aobj.get('\xa9nam')
+            track_dirty = True
+
+        if 'trkn' in m4aobj:
+            # Track number.  A tuple of (x, y), with x as the track number
+            # and y as the total number of tracks.
+            self.asset.track.track_number = m4aobj.get('trkn')[0]
+            track_dirty = True
+
+        if 'disk' in m4aobj:
+            # Disk number, similar to trkn
+            self.asset.track.disc_number = m4aobj.get('disk')[0]
+            track_dirty = True
+
+        if 'cpil' in m4aobj:
+            # Is it a compilation?
+            self.asset.track.album.is_compilation = m4aobj.get('cpil')
+            album_dirty = True
+
+        if 'covr' in m4aobj:
+            # Cover artwork
+            # Untested, so far!
+            covr = m4aobj.get('covr')
+            if covr.imageformat == M4ACover.FORMAT_JPEG:
+                covr_mime = 'image/jpeg'
+            elif covr.imageformat == M4ACover.FORMAT_PNG:
+                covr_mime = 'image/png'
+            else:
+                covr_mime = 'application/octet-stream'
+            covr_obj_fn = u'COVR-{1}{2}'.format(
+                self.name.replace('.','_'),
+                mimetypes.guess_extension(covr_mime, strict=False),
+            )
+            covr_obj, covr_created = AssetFile.objects.get_or_create(
+                asset = self.asset,
+                mimetype = covr_mime,
+                name = covr_obj_fn,
+            )
+            covr_obj.contents.save(covr_obj_fn, ContentFile(covr))
+            covr_obj.save()
+
+        if track_dirty:
+            self.asset.track.save()
+        if album_dirty:
+            self.asset.track.album.save()
+
     def _inspect_mp3(self):
         "Cracks open the mp3 file and determines what is inside."
         self.contents.seek(0)
@@ -92,6 +170,12 @@ class AssetFile(Thing):
         ad.bit_rate = infoobj.bitrate
         ad.sample_rate = infoobj.sample_rate
         ad.lossy = True
+
+        self.save()
+        ad.save()
+
+        track_dirty = False
+        album_dirty = False
 
         self.contents.seek(0)
         id3obj = ID3File(self.contents)
@@ -105,21 +189,22 @@ class AssetFile(Thing):
         # Start scanning individual tags.
         # TIT2 = Title
         if 'TIT2' in id3obj:
-            self.asset.name = id3obj.get('TIT2').text[0]
+            self.asset.track.name = id3obj.get('TIT2').text[0]
+            track_dirty = True
 
         # APIC = Attached Picture
         apic = id3obj.getall('APIC')
         if apic:
             # We have a picture!  Extract it onto its own AssetFile.
-            apic_obj, apic_created = AssetFile.objects.get_or_create(
-                asset = self.asset,
-                mimetype = apic[0].mime,
-                name = apic[0].pprint(),
-            )
             apic_obj_fn = u'APIC-{0}-{1}{2}'.format(
                 apic[0].type or 'X',
                 self.name.replace('.','_'),
                 mimetypes.guess_extension(apic[0].mime, strict=False),
+            )
+            apic_obj, apic_created = AssetFile.objects.get_or_create(
+                asset = self.asset,
+                mimetype = apic[0].mime,
+                name = apic_obj_fn,
             )
             apic_obj.contents.save(apic_obj_fn, ContentFile(apic[0].data))
             apic_obj.save()
@@ -129,6 +214,7 @@ class AssetFile(Thing):
             try:
                 # Extract the year, if sensible.
                 self.asset.track.year = int(id3obj['TDRC'].text[0].year)
+                track_dirty = True
             except:
                 pass
 
@@ -138,14 +224,18 @@ class AssetFile(Thing):
             # x as the track number and y as the total number of tracks.
             # Taking the positive of it (__pos__) gets just x.
             self.asset.track.track_number = +id3obj.get('TRCK')
+            track_dirty = True
 
         # TPOS = Part of Set
         if 'TPOS' in id3obj:
             # Same as TRCK handling.
             self.asset.track.disc_number = +id3obj.get('TPOS')
+            track_dirty = True
 
-        ad.save()
-        self.save()
+        if track_dirty:
+            self.asset.track.save()
+        if album_dirty:
+            self.asset.track.album.save()
 
 class AssetDescriptor(models.Model):
     "Describes a bitstream in a possibly-multiplexed file."

@@ -1,6 +1,9 @@
 from mutagen.id3 import ID3, ID3NoHeaderError, ID3UnsupportedVersionError
 from mutagen.id3 import ParseID3v1, Frames, Frames_2_2, Frame
 
+from mutagen.m4a import M4A, Atoms, M4AInfo, M4AStreamInfoError, M4ATags
+from mutagen.m4a import M4AMetadataError
+
 # Subclass various mutagen stuff to use file-like objects
 # instead of filenames, since it doesn't really know what
 # to do with our filenames...
@@ -57,3 +60,25 @@ class ID3File(ID3):
 
     def save(self, filename=None):
         raise NotImplementedError
+
+class M4AFile(M4A):
+    def load(self, fp):
+        self.filename = fp.name
+        fileobj = fp
+        try:
+            atoms = Atoms(fileobj)
+            try: self.info = M4AInfo(atoms, fileobj)
+            except StandardError, err:
+                raise M4AStreamInfoError, err, sys.exc_info()[2]
+            try: self.tags = M4ATags(atoms, fileobj)
+            except M4AMetadataError:
+                self.tags = None
+            except StandardError, err:
+                raise M4AMetadataError, err, sys.exc_info()[2]
+        finally:
+            fileobj.close() 
+
+    def save(self, filename=None):
+        raise NotImplementedError
+
+
