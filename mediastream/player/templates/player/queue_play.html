@@ -1,8 +1,13 @@
 {% extends "player.html" %}
 {% block player_script %}
+    <script type="text/javascript" src="{{ STATIC_URL }}ajax_csrf.js"></script>
     <script type="text/javascript" src="{{ STATIC_URL }}jplayer.playlist.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}jQuery.ajaxQueue.min.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}plajax.js"></script>
     <script type="text/javascript">
     var jplaylist;
+    var player_event_url = "{% url player_event %}";
+    var user_id = "{{ user.id }}";
     $(document).ready(function(){
         jplaylist = new jPlayerPlaylist({
             jPlayer: "#jquery_jplayer_1",
@@ -27,15 +32,7 @@
             wmode: "window" // for Firefox 3.6 compatibility
         });
     });
-</script>
-{% endblock %}
-{% block response_function %}
-            $.each(reply.tracks, function(index, value) {
-                jplaylist.add(value);
-            });
-            if(jplaylist.current > 0){
-                jplaylist.remove(0);
-            }
+    </script>
 {% endblock %}
 {% block player_body %}
   <p id="playeralerts"></p>

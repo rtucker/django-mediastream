@@ -43,6 +43,8 @@ class AssetQueueItem(models.Model):
     modified = models.DateTimeField(auto_now=True)
 
     class Meta:
+        # TODO: order_with_respect_to = 'queue', then actually make sure it
+        # all goes in the right order...
         ordering = ['id']
 
     def __unicode__(self):
