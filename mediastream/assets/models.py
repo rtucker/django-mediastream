@@ -1,14 +1,14 @@
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.db.models import Avg, Max, Min, Count
 
 import mimetypes
-import os
+from mutagen.mp3 import MPEGInfo
 
 from mediastream.assets import MIMETYPE_CHOICES, _get_upload_path
-
-basepath = getattr(settings, 'ASSETS_UPLOAD_TO', '/assets')
+from mediastream.utilities.mediainspector import ID3File
 
 class Thing(models.Model):
     "Abstract base class for things with names."
@@ -43,6 +43,8 @@ class AssetFile(Thing):
     contents    = models.FileField(upload_to=_get_upload_path, max_length=255)
     mimetype    = models.CharField(max_length=255, choices=MIMETYPE_CHOICES,
                                    blank=True, verbose_name="MIME type")
+    length      = models.FloatField(blank=True, null=True,
+                    help_text="Length of file, in seconds")
 
     class Meta:
         order_with_respect_to = 'asset'
@@ -78,6 +80,59 @@ class AssetFile(Thing):
         return out
     get_descriptor_admin_links.allow_tags = True
     get_descriptor_admin_links.short_description = 'Stream descriptors'
+
+    def _inspect_mp3(self):
+        "Cracks open the mp3 file and determines what is inside."
+        self.contents.seek(0)
+        infoobj = MPEGInfo(self.contents)
+        ad, created = self.assetdescriptor_set.get_or_create(bitstream=0)
+        if not infoobj.sketchy:
+            self.mimetype = ad.mimetype = 'audio/mpeg'
+        self.length = infoobj.length
+        ad.bit_rate = infoobj.bitrate
+        ad.sample_rate = infoobj.sample_rate
+        ad.lossy = True
+
+        self.contents.seek(0)
+        id3obj = ID3File(self.contents)
+        # This is actually a remarkably grody object.
+        # See http://code.google.com/p/mutagen/source/browse/trunk/mutagen/easyid3.py
+        if 'TIT2' in id3obj:
+            self.asset.name = id3obj.get('TIT2').text[0]
+
+        apic = id3obj.getall('APIC')
+        if apic:
+            # hot dang, we have an artist pic
+            apic_obj, apic_created = AssetFile.objects.get_or_create(
+                asset = self.asset,
+                mimetype = apic[0].mime,
+                name = apic[0].pprint(),
+            )
+            apic_obj_fn = u'APIC-{0}-{1}{2}'.format(
+                apic[0].type or 'X',
+                self.name.replace('.','_'),
+                mimetypes.guess_extension(apic[0].mime, strict=False),
+            )
+            apic_obj.contents.save(apic_obj_fn, ContentFile(apic[0].data))
+            apic_obj.save()
+
+        if 'TDRC' in id3obj:
+            # special case: date
+            try:
+                self.asset.track.year = int(id3obj['TDRC'].text[0].year)
+            except:
+                pass
+
+        if 'TRCK' in id3obj:
+            # Track number
+            self.asset.track.track_number = +id3obj.get('TRCK')
+
+        if 'TPOS' in id3obj:
+            # Part of set
+            self.asset.track.disc_number = +id3obj.get('TPOS')
+
+        ad.save()
+        self.save()
 
 class AssetDescriptor(models.Model):
     "Describes a bitstream in a possibly-multiplexed file."
@@ -195,6 +250,8 @@ class Track(Asset):
         return u'{0} - {1}'.format(self.artist, self.name)
 
     def get_pretty_track_number(self):
+        # TODO: ID3 spec specifies X/Y = Track X of Y
+        # This is probably quite confusing.
         dn = self.disc_number if (self.disc_number and
                                 self.disc_number > 0) else None
         tn = self.track_number if (self.track_number and

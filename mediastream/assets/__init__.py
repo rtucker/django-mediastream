@@ -1,4 +1,9 @@
+from django.conf import settings
+
 import mimetypes
+import os
+
+basepath = getattr(settings, 'ASSETS_UPLOAD_TO', '/assets')
 
 # Group and sort the mimetypes, for ease of display
 mimetypes_grouped = {}
