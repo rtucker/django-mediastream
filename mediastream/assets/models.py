@@ -365,6 +365,12 @@ class Track(Asset):
     get_pretty_track_number.short_description = 'track number'
     get_pretty_track_number.admin_order_field = 'track_number'
 
+    def get_artwork_url(self, **kwargs):
+        qs = self.assetfile_set.filter(mimetype__startswith='image/').order_by('?')
+        if qs.exists():
+            return qs[0].contents.url
+        return None
+
     def get_streaming_url(self, **kwargs):
         "Returns the best URL for this object."
         return self.assetfile_set.all()[0].contents.url

@@ -13,16 +13,9 @@
             jPlayer: "#jquery_jplayer_1",
             cssSelectorAncestor: "#jp_container_1"
         }, [
-            {% for item in offer %}
-            {   title:"{{ item.asset.track|escapejs }}",
-                artist:"{{ item.asset.artist.name|escapejs }}",
-                pk:"{{ item.pk }}",
-                {% if perms.assets.can_download_asset %}free:true,{% endif %}
-                {% with item.asset.track as track %}
-                {{ track.get_streaming_exten }}: "{{ track.get_streaming_url|escapejs }}"
-                {% endwith %}
-            }{% if not forloop.last %},{% endif %}
-            {% endfor %}
+            {   title:"Loading...",
+                mp3:"{{ STATIC_URL }}loading-clicktrack.mp3"
+            }
         ], {
             playlistOptions: {
                 autoPlay: true
