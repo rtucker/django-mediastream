@@ -72,27 +72,39 @@ def player_event_handler(request):
     player_state = post.get('eventType', 'jPlayer_unknown')
 
     if 'mediaPk' in post:
+        # First item on the playlist
         current_track = AssetQueueItem.objects.get(pk=post['mediaPk'])
     else:
         current_track = last_known_playing
+
+    if 'caboosePk' in post:
+        # Last item on the playlist
+        offer_pointer = AssetQueueItem.objects.get(pk=post['caboosePk'])
 
     current_name = current_track.asset.track.name
     current_artist = current_track.asset.track.artist
     remaining = int(post.get('playlistLength', 0))
 
     # Start building response
-    d = {'response':    ('Hello, {0}.  You are listening to {1} by {2}.').format(
-                            request.user.first_name or request.user.username,
-                            current_name,
-                            current_artist,
-                            ),
-         'tracks':      [],
-        }
+    d = {}
 
     if not queue or not offer_pointer or not last_known_playing:
         d['response'] = ("I'm sorry, but please reload this page when "
-                         "you get a chance.")
+                         "you get a chance.  I've had an accident.")
         return HttpResponse(simplejson.dumps(d), mimetype="application/json")
+
+    d = {'response':    ('Hello, {0}!').format(
+                            request.user.first_name or request.user.username,
+                            ),
+         'artistName':  current_track.asset.track.artist.name,
+         'artistPk':    current_track.asset.track.artist.pk,
+         'trackName':   current_track.asset.track.name,
+         'trackPk':     current_track.asset.track.pk,
+         'albumName':   current_track.asset.track.album.name,
+         'albumPk':     current_track.asset.track.album.pk,
+         'queuePk':     queue.pk,
+         'tracks':      [],
+        }
 
     # Handle client states
     if player_state == 'jPlayer_play':
@@ -126,6 +138,7 @@ def player_event_handler(request):
         current_track.save()
 
     # Top off the user's playlist
+    shortage = False
     while len(d['tracks']) + remaining < 3:
         try:
             next_track = offer_pointer.get_next_by_created()
@@ -134,6 +147,11 @@ def player_event_handler(request):
                 continue
             if not request.user.has_perm('asset.can_stream_asset', next_track.asset):
                 continue
+            poster_af = next_track.asset.track.assetfile_set.filter(mimetype__startswith='image/').order_by('?')
+            if poster_af.exists():
+                poster = poster_af[0].contents.url
+            else:
+                poster = None
             url = next_track.asset.track.get_streaming_url()
             key = next_track.asset.track.get_streaming_exten()
             d['tracks'].append({
@@ -142,14 +160,24 @@ def player_event_handler(request):
                 'title': unicode(next_track.asset.track),
                 'free': request.user.has_perm('asset.can_download_asset', next_track.asset),
                 key: url,
+                'poster': poster or '',
             })
             next_track.state = 'offered'
             next_track.save()
 
         except AssetQueueItem.DoesNotExist:
             # queue is empty!
-            d['response'] += u"  You're almost out of music in this queue."
+            shortage = True
             break
+
+    if shortage:
+        d['response'] = u"You're almost out of music, {0}.".filter(request.user.first_name or request.user.username)
+
+    d['title'] = '{0}{1} - {2} - mediastream'.format(
+            '* ' if shortage else '',
+            current_name,
+            current_artist,
+        )
 
     # God save the state
     request.session['last_known_playing'] = last_known_playing

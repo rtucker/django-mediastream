@@ -1,11 +1,16 @@
 var send_event = function(event){
-    if(jplaylist.current > 0){
-        jplaylist.remove(0);
+    if(jplaylist.playlist[jplaylist.current].poster) {
+        $("div#albumart img").attr("src", jplaylist.playlist[jplaylist.current].poster).show('slow');
+    } else {
+        $("div#albumart img").hide('slow');
     }
     $.ajaxQueue({
         type: 'POST',
         url: player_event_url,
         data: function(event){
+                if(jplaylist.current > 0){
+                    jplaylist.remove(0);
+                }
                 var data = {
                     user:           user_id,
                     eventType:      event.type,
@@ -14,7 +19,8 @@ var send_event = function(event){
                     seekPercent:    event.jPlayer.status.seekPercent,
                     bufferPercent:  event.jPlayer.status.currentPercentRelative,
                     mediaPk:        event.jPlayer.status.media.pk,
-                    playlistLength: $(".jp-playlist > ul > li").length
+                    playlistLength: $(jplaylist.playlist).length,
+                    caboosePk:      $(jplaylist.playlist).last()[0].pk
                 };
                 if (event.type == 'jPlayer_error'){
                     data.errorType = event.jPlayer.error.type;
@@ -25,6 +31,11 @@ var send_event = function(event){
         dataType: "json",
         success: function(reply){
             $("#playeralerts").text(reply.response);
+            if(reply.artistName && reply.trackName) {
+                $('title').text(reply.trackName + " by " + reply.artistName + " | mediastream");
+            } else {
+                $('title').text('mediastream cloud music');
+            }
             $.each(reply.tracks, function(index, value) {
                 jplaylist.add(value);
             });
