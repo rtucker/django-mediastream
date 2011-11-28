@@ -36,7 +36,7 @@ def music_player(request):
     next_track = queue.item_set.filter(state__in=['waiting', 'offered'])[0]
     request.session['last_known_playing'] = next_track
 
-    while len(context['offer']) < 3:
+    while len(context['offer']) < 1:
         try:
             if next_track.state not in ['waiting', 'offered']:
                 next_track = next_track.get_next_by_created()
