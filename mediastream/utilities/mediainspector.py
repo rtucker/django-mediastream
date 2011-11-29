@@ -150,14 +150,20 @@ class Inspector(object):
         self.artist = id3obj.get('TPE1').text[0] if 'TPE1' in id3obj else None
         self.band = id3obj.get('TPE2').text[0] if 'TPE2' in id3obj else None
         self.bitrate = infoobj.bitrate
-        self.disc = +id3obj.get('TPOS') if 'TPOS' in id3obj else None
+        try:
+            self.disc = +id3obj.get('TPOS') if 'TPOS' in id3obj else None
+        except:
+            self.disc = None
         self.genre = id3obj.get('TCON').text[0] if 'TCON' in id3obj else None
         self.is_sketchy = infoobj.sketchy
         self.length = infoobj.length
         self.lossy = True
         self.name = id3obj.get('TIT2').text[0] if 'TIT2' in id3obj else None
         self.samplerate = infoobj.sample_rate
-        self.track = +id3obj.get('TRCK') if 'TRCK' in id3obj else None
+        try:
+            self.track = +id3obj.get('TRCK') if 'TRCK' in id3obj else None
+        except:
+            self.track = None
         self.year = int(id3obj['TDRC'].text[0].year) if 'TDRC' in id3obj else None
 
         self.artwork = []
