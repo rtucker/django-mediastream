@@ -7,7 +7,7 @@ basepath = getattr(settings, 'ASSETS_UPLOAD_TO', '/assets')
 mt = mimetypes.MimeTypes()
 
 # Add previously-unknown mimetypes
-mt.add_type('audio/mp4', 'm4a')
+mt.add_type('audio/mp4', '.m4a')
 
 # Group and sort the mimetypes, for ease of display
 mimetypes_grouped = {}
