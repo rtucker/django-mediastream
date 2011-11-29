@@ -117,19 +117,21 @@ class Artist(Thing):
 
     def get_track_admin_links(self):
         out = u'<ul>'
-        for track in self.track_set.all().order_by('track_number'):
-            out += (u'<li><a href="{url}">Track {tn}</a>: '
-                    u'{artist} / {name}</li>'
-                   ).format(
+        for album in self.track_set.all().values('album').order_by('album').distinct():
+            album = Album.objects.get(pk=album['album'])
+            out += u'<li><a href="{url}">{album}</a>:</li>'.format(url=reverse('admin:assets_album_change', args=(album.id,)), album=album.name,)
+            out += u'<ul>'
+            for track in self.track_set.filter(album=album).order_by('disc_number', 'track_number'):
+                out += (u'<li><a href="{url}">Track {tn}</a>: '
+                        u'{artist} / {name}</li>'
+                       ).format(
                         url=reverse('admin:assets_track_change',
                             args=(track.id,)),
                         tn=track.get_pretty_track_number(),
                         artist=track.artist.name,
                         name=track.name,
-                    )
-        if self.pk: out += u'<li><a href="{url}">Add new...</a></li>'.format(
-                        url=reverse('admin:assets_track_add'),
-                    )
+                       )
+            out += u'</ul>'
         out += u'</ul>'
         return out
     get_track_admin_links.allow_tags = True
