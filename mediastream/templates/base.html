@@ -1,12 +1,15 @@
 <html>
 <head>
   <title>{% block title %}mediastream{% endblock %}</title>
+  <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6/jquery.min.js"></script>
   {% block player_head %}{% endblock %}
   {% block head %}{% endblock %}
 </head>
 <body>
+{% block body %}
   {% block body_top %}{% endblock %}
   {% block player_body %}{% endblock %}
   {% block body_bottom %}{% endblock %}
+{% endblock %}
 </body>
 </html>

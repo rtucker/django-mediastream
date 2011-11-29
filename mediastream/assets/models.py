@@ -9,7 +9,7 @@ from mutagen.m4a import M4ACover
 from mutagen.mp3 import MPEGInfo
 
 from mediastream.assets import MIMETYPE_CHOICES, _get_upload_path
-from mediastream.utilities.mediainspector import ID3File, M4AFile
+from mediastream.utilities.mediainspector import Inspector
 
 class Thing(models.Model):
     "Abstract base class for things with names."
@@ -81,161 +81,6 @@ class AssetFile(Thing):
         return out
     get_descriptor_admin_links.allow_tags = True
     get_descriptor_admin_links.short_description = 'Stream descriptors'
-
-    def _inspect_m4a(self):
-        "Cracks open an M4A file and determines what is inside."
-        self.contents.seek(0)
-        m4aobj = M4AFile(self.contents)
-        ad, created = self.assetdescriptor_set.get_or_create(bitstream=0)
-        self.length = m4aobj.info.length
-        self.mimetype = ad.mimetype = "audio/mp4"
-        ad.bit_rate = m4aobj.info.bitrate
-        ad.lossy = True
-
-        self.save()
-        ad.save()
-
-        track_dirty = False
-        album_dirty = False
-
-        # For future use:
-        #   \xa9alb =   Album name
-        #   \xa9ART =   Artist name
-        #   \xa9gen =   Genre
-
-        if '\xa9day' in m4aobj:
-            # Date (year?)
-            try:
-                self.asset.track.year = int(m4aobj.get('\xa9day'))
-                track_dirty = True
-            except:
-                pass
-
-        if '\xa9nam' in m4aobj:
-            # Track name
-            self.asset.track.name = m4aobj.get('\xa9nam')
-            track_dirty = True
-
-        if 'trkn' in m4aobj:
-            # Track number.  A tuple of (x, y), with x as the track number
-            # and y as the total number of tracks.
-            self.asset.track.track_number = m4aobj.get('trkn')[0]
-            track_dirty = True
-
-        if 'disk' in m4aobj:
-            # Disk number, similar to trkn
-            self.asset.track.disc_number = m4aobj.get('disk')[0]
-            track_dirty = True
-
-        if 'cpil' in m4aobj:
-            # Is it a compilation?
-            self.asset.track.album.is_compilation = m4aobj.get('cpil')
-            album_dirty = True
-
-        if 'covr' in m4aobj:
-            # Cover artwork
-            # Untested, so far!
-            covr = m4aobj.get('covr')
-            if covr.imageformat == M4ACover.FORMAT_JPEG:
-                covr_mime = 'image/jpeg'
-            elif covr.imageformat == M4ACover.FORMAT_PNG:
-                covr_mime = 'image/png'
-            else:
-                covr_mime = 'application/octet-stream'
-            covr_obj_fn = u'COVR-{1}{2}'.format(
-                self.name.replace('.','_'),
-                mimetypes.guess_extension(covr_mime, strict=False),
-            )
-            covr_obj, covr_created = AssetFile.objects.get_or_create(
-                asset = self.asset,
-                mimetype = covr_mime,
-                name = covr_obj_fn,
-            )
-            covr_obj.contents.save(covr_obj_fn, ContentFile(covr))
-            covr_obj.save()
-
-        if track_dirty:
-            self.asset.track.save()
-        if album_dirty:
-            self.asset.track.album.save()
-
-    def _inspect_mp3(self):
-        "Cracks open the mp3 file and determines what is inside."
-        self.contents.seek(0)
-        infoobj = MPEGInfo(self.contents)
-        ad, created = self.assetdescriptor_set.get_or_create(bitstream=0)
-        if not infoobj.sketchy:
-            self.mimetype = ad.mimetype = 'audio/mpeg'
-        self.length = infoobj.length
-        ad.bit_rate = infoobj.bitrate
-        ad.sample_rate = infoobj.sample_rate
-        ad.lossy = True
-
-        self.save()
-        ad.save()
-
-        track_dirty = False
-        album_dirty = False
-
-        self.contents.seek(0)
-        id3obj = ID3File(self.contents)
-        # This is actually a remarkably grody object.
-        # See http://code.google.com/p/mutagen/source/browse/trunk/mutagen/easyid3.py
-        # For future use:
-        #   TPE1    =   Lead Artist/Performer/Soloist/Group
-        #   TPE2    =   Band/Orchestra/Accompaniment
-        #   TCON    =   Content Type (Genre)
-
-        # Start scanning individual tags.
-        # TIT2 = Title
-        if 'TIT2' in id3obj:
-            self.asset.track.name = id3obj.get('TIT2').text[0]
-            track_dirty = True
-
-        # APIC = Attached Picture
-        apic = id3obj.getall('APIC')
-        if apic:
-            # We have a picture!  Extract it onto its own AssetFile.
-            apic_obj_fn = u'APIC-{0}-{1}{2}'.format(
-                apic[0].type or 'X',
-                self.name.replace('.','_'),
-                mimetypes.guess_extension(apic[0].mime, strict=False),
-            )
-            apic_obj, apic_created = AssetFile.objects.get_or_create(
-                asset = self.asset,
-                mimetype = apic[0].mime,
-                name = apic_obj_fn,
-            )
-            apic_obj.contents.save(apic_obj_fn, ContentFile(apic[0].data))
-            apic_obj.save()
-
-        # TDRC = Recording Time
-        if 'TDRC' in id3obj:
-            try:
-                # Extract the year, if sensible.
-                self.asset.track.year = int(id3obj['TDRC'].text[0].year)
-                track_dirty = True
-            except:
-                pass
-
-        # TRCK = Track Number
-        if 'TRCK' in id3obj:
-            # With mutagen, the text element is in the form x/y, with
-            # x as the track number and y as the total number of tracks.
-            # Taking the positive of it (__pos__) gets just x.
-            self.asset.track.track_number = +id3obj.get('TRCK')
-            track_dirty = True
-
-        # TPOS = Part of Set
-        if 'TPOS' in id3obj:
-            # Same as TRCK handling.
-            self.asset.track.disc_number = +id3obj.get('TPOS')
-            track_dirty = True
-
-        if track_dirty:
-            self.asset.track.save()
-        if album_dirty:
-            self.asset.track.album.save()
 
 class AssetDescriptor(models.Model):
     "Describes a bitstream in a possibly-multiplexed file."
@@ -377,3 +222,56 @@ class Track(Asset):
 
     def get_streaming_exten(self, **kwargs):
         return self.assetfile_set.all()[0].contents.name[-3:]
+
+    def _inspect_files(self, qs=None, update_artist=False, update_album=False):
+        if not qs:
+            qs = self.assetfile_set.all()
+        for assetfile in qs:
+            inspobj = Inspector(assetfile.contents, assetfile.mimetype)
+
+            if not inspobj.mimetype.startswith('audio/'):
+                continue
+
+            if (not self.artist or update_artist) and hasattr(inspobj, 'artist') and inspobj.artist:
+                self.artist, created = Artist.objects.get_or_create(
+                    name__iexact=inspobj.artist.strip(),
+                )
+            if (not self.album or update_album) and hasattr(inspobj, 'album') and inspobj.album:
+                self.album, created = Album.objects.get_or_create(
+                    name__iexact=inspobj.album.strip(),
+                )
+
+            if hasattr(inspobj, 'is_compilation') and inspobj.is_compilation is not None:
+                self.album.is_compilation = inspobj.is_compilation
+                self.album.save()
+
+            self.name = getattr(inspobj, 'name', None) or self.name
+            self.year = getattr(inspobj, 'year', None) or self.year
+            self.disc_number = getattr(inspobj, 'disc', None) or self.disc_number
+            self.track_number = getattr(inspobj, 'track', None) or self.track_number
+
+            self.length = getattr(inspobj, 'length', None) or self.length
+            assetfile.length = getattr(inspobj, 'length', None) or assetfile.length
+            assetfile.mimetype = getattr(inspobj, 'mimetype', assetfile.mimetype)
+
+            descriptor, created = assetfile.assetdescriptor_set.get_or_create(bitstream=0, defaults={
+                'mimetype': assetfile.mimetype,
+                'bit_rate': getattr(inspobj, 'bitrate', None),
+                'is_vbr': getattr(inspobj, 'is_vbr', None),
+                'lossy': getattr(inspobj, 'lossy', None),
+                'sample_rate': getattr(inspobj, 'samplerate', None),
+            })
+
+            for apic in getattr(inspobj, 'artwork', []):
+                # We have a picture!  Extract it onto its own AssetFile.
+                apic_obj_fn = u'APIC-{0}-{1}'.format(
+                    self.pk,
+                    assetfile.pk,
+                )
+                apic_obj, apic_created = AssetFile.objects.get_or_create(
+                    asset = self,
+                    mimetype = apic['mimetype'],
+                    name = apic_obj_fn,
+                )
+                apic_obj.contents.save(apic_obj_fn, ContentFile(apic['data']))
+                apic_obj.save()

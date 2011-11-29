@@ -1,8 +1,12 @@
 from mutagen.id3 import ID3, ID3NoHeaderError, ID3UnsupportedVersionError
 from mutagen.id3 import ParseID3v1, Frames, Frames_2_2, Frame
 
+from mutagen.mp3 import MPEGInfo
+
 from mutagen.m4a import M4A, Atoms, M4AInfo, M4AStreamInfoError, M4ATags
-from mutagen.m4a import M4AMetadataError
+from mutagen.m4a import M4AMetadataError, M4ACover
+
+import magic
 
 # Subclass various mutagen stuff to use file-like objects
 # instead of filenames, since it doesn't really know what
@@ -13,7 +17,11 @@ class ID3File(ID3):
         self.filename = fp.name
         self.__known_frames = known_frames
         self.__fileobj = fp
-        self.__filesize = fp.size
+        try:
+            self.__filesize = fp.size
+        except AttributeError:
+            self.__filesize = len(fp.read())
+            fp.seek(0)
 
         # grumble grumble
         self.__load_header = self._ID3__load_header
@@ -81,4 +89,78 @@ class M4AFile(M4A):
     def save(self, filename=None):
         raise NotImplementedError
 
+class Inspector(object):
+    """
+    Given a file-like object, this class provides attributes for accessing
+    various metadata stored in media objects.
+    """
+    def __init__(self, fileobj, mimetype=None):
+        self._fileobj = fileobj
+        self.mimetype = mimetype
+        if not self.mimetype:
+            self._determine_type()
+        if self.mimetype == 'audio/mpeg':
+            self._inspect_mp3()
+        elif self.mimetype == 'audio/mp4':
+            self._inspect_m4a()
 
+    def _determine_type(self):
+        "Determines the type of a file, using magic."
+        self._fileobj.seek(0)
+        self.mimetype = magic.from_buffer(self._fileobj.read(), mime=True)
+
+    def _inspect_m4a(self):
+        "Cracks open an M4A file and determines what is inside."
+        self._fileobj.seek(0)
+        m4aobj = M4AFile(self._fileobj)
+
+        self.album = m4aobj.get('\xa9alb', None)
+        self.artist = m4aobj.get('\xa9ART', None)
+        self.bitrate = m4aobj.info.bitrate
+        self.disc = m4aobj.get('disk', [None])[0]
+        self.genre = m4aobj.get('\xa9gen', None)
+        self.length = m4aobj.info.length
+        self.lossy = True
+        self.is_compilation = m4aobj.get('cpil', None)
+        self.name = m4aobj.get('\xa9nam', None)
+        self.track = m4aobj.get('trkn', [None])[0]
+        self.year = int(m4aobj.get('\xa9day')) if '\xa9day' in m4aobj else None
+
+        self.artwork = []
+        if 'covr' in m4aobj:
+            # Cover artwork
+            # Untested, so far!
+            covr = m4aobj.get('covr')
+            if covr.imageformat == M4ACover.FORMAT_JPEG:
+                covr_mime = 'image/jpeg'
+            elif covr.imageformat == M4ACover.FORMAT_PNG:
+                covr_mime = 'image/png'
+            else:
+                covr_mime = 'application/octet-stream'
+            self.artwork.append({'data': covr, 'mimetype': covr_mime})
+
+    def _inspect_mp3(self):
+        "Cracks open the mp3 file and determines what is inside."
+        self._fileobj.seek(0)
+        infoobj = MPEGInfo(self._fileobj)
+        self._fileobj.seek(0)
+        id3obj = ID3File(self._fileobj)
+
+        self.album = id3obj.get('TALB').text[0] if 'TALB' in id3obj else None
+        self.artist = id3obj.get('TPE1').text[0] if 'TPE1' in id3obj else None
+        self.band = id3obj.get('TPE2').text[0] if 'TPE2' in id3obj else None
+        self.bitrate = infoobj.bitrate
+        self.disc = +id3obj.get('TPOS') if 'TPOS' in id3obj else None
+        self.genre = id3obj.get('TCON').text[0] if 'TCON' in id3obj else None
+        self.is_sketchy = infoobj.sketchy
+        self.length = infoobj.length
+        self.lossy = True
+        self.name = id3obj.get('TIT2').text[0] if 'TIT2' in id3obj else None
+        self.samplerate = infoobj.sample_rate
+        self.track = +id3obj.get('TRCK') if 'TRCK' in id3obj else None
+        self.year = int(id3obj['TDRC'].text[0].year) if 'TDRC' in id3obj else None
+
+        self.artwork = []
+        for apic in id3obj.getall('APIC'):
+            # We have a picture!  Extract it onto its own AssetFile.
+            self.artwork.append({'data': apic.data, 'mimetype': apic.mime})
