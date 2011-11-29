@@ -4,11 +4,11 @@ from django.core.urlresolvers import reverse
 from django.db import models
 from django.db.models import Avg, Max, Min, Count
 
-import mimetypes
 from mutagen.m4a import M4ACover
 from mutagen.mp3 import MPEGInfo
 
 from mediastream.assets import MIMETYPE_CHOICES, _get_upload_path
+from mediastream.assets import mt as mimetypes
 from mediastream.utilities.mediainspector import Inspector
 
 class Thing(models.Model):
@@ -53,9 +53,10 @@ class AssetFile(Thing):
     @property
     def filename(self):
         if hasattr(self.asset, 'track') and self.mimetype.startswith('audio'):
-            return u"{0}{1}".format(self.asset.track.name,
-                                  mimetypes.guess_extension(
-                                    self.mimetype, False))
+            if self.mimetype == 'audio/mpeg': exten = '.mp3'
+            elif self.mimetype == 'audio/mp4': exten = '.m4a'
+            else: exten = mimetypes.guess_extension(self.mimetype, False)
+            return u"{0}{1}".format(self.asset.track.name, exten)
         else:
             return u"{0}{1}".format(self.name,
                                   mimetypes.guess_extension(
