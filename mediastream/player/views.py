@@ -146,7 +146,7 @@ def player_event_handler(request):
             break
 
     if shortage:
-        d['response'] = u"You're almost out of music, {0}.  What are you going to do?".filter(request.user.first_name or request.user.username)
+        d['response'] = u"You're almost out of music, {0}.  What are you going to do?".format(request.user.first_name or request.user.username)
 
     # God save the state
     request.session['active_queue'] = queue.pk
