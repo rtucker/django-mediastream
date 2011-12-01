@@ -8,7 +8,7 @@ class AlbumAdmin(admin.ModelAdmin):
         qs = super(AlbumAdmin, self).queryset(request)
         return qs.annotate(
                     artist_count=Count('track__artist', distinct=True),
-                    track_count=Count('track'),)
+                    track_count=Count('track', distinct=True),)
 
     list_display    = ['__unicode__', 'is_compilation', 'discs',
                        'get_artist_count', 'get_track_count',]
@@ -31,7 +31,7 @@ class ArtistAdmin(admin.ModelAdmin):
         qs = super(ArtistAdmin, self).queryset(request)
         return qs.annotate(
                     album_count=Count('track__album', distinct=True),
-                    track_count=Count('track'),)
+                    track_count=Count('track', distinct=True),)
 
     list_display    = ['__unicode__', 'is_prince',
                        'get_album_count', 'get_track_count',]
