@@ -140,6 +140,11 @@ def player_event_handler(request):
             next_track.state = 'offered'
             next_track.save()
 
+        except AssetFile.DoesNotExist:
+            # no way to stream this!
+            next_track.state = 'fileerror'
+            next_track.save()
+
         except AssetQueueItem.DoesNotExist:
             # queue is empty!
             shortage = True
