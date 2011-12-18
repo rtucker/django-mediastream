@@ -1,4 +1,15 @@
 {% extends "base.html" %}
+{% block title %}Asset Upload{% endblock %}
+{% block player_head %}
+<link type="text/css" href="{{ STATIC_URL }}upload.css" rel="stylesheet" />
+<script type="text/javascript">
+// for Safari + uploadProgress
+var jqpath = "http://ajax.googleapis.com/ajax/libs/jquery/1.6/jquery.min.js";
+var uppath = "{{ STATIC_URL }}jquery.uploadProgress.js";
+</script>
+<script type="text/javascript" src="{{ STATIC_URL }}jquery.uploadProgress.js"></script>
+<script type="text/javascript" src="{{ STATIC_URL }}upload.js"></script>
+{% endblock %}
 {% block body %}
 {% if messages %}
 <ul class="messages">
@@ -7,13 +18,22 @@
     {% endfor %}
 </ul>
 {% endif %}
-
-<h1>Upload an audio file or a ZIP of audio files</h1>
-<form enctype="multipart/form-data" method="post">
-{% csrf_token %}
-{{ form.as_p }}
-<input type="submit" value="Submit" />
-</form>
-
-<p>Don't upload weird items.</p>
+<div id="upload_form">
+  <form id="upform" enctype="multipart/form-data" method="post" action="{% url asset-upload %}">
+    {% csrf_token %}
+    {{ upform.as_p }}
+    <input type="submit" value="Submit" />
+  </form>
+  <form id="imform" method="post" action="{% url asset-upload %}">
+    {% csrf_token %}
+    {{ imform.as_p }}
+    <input type="submit" value="Submit" />
+  </form>
+</div>
+<div id="progress_container">
+  <div id="progress_filename"></div>
+  <div id="progress_bar">
+    <div id="progress_indicator"></div>
+  </div>
+</div>
 {% endblock %}
