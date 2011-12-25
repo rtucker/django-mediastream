@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.contenttypes import generic
 from mediastream.queuer.models import AssetQueue, AssetQueueItem
@@ -35,18 +36,22 @@ class AssetQueueAdmin(admin.ModelAdmin):
     list_display = ['id', 'user', 'created', 'modified', 'get_playing_state', 'get_waiting_count', 'get_item_count']
     list_filter = ['created', 'modified', 'user']
 
-    readonly_fields = ['created', 'modified', 'get_playing_state', 'get_waiting_count', 'get_item_count']
+    readonly_fields = ['created', 'modified', 'get_playing_state', 'get_waiting_count', 'get_item_count', 'delete_old_tracks']
 
     fieldsets = (
         ('', 
             {
              'fields': (
                 ('user', 'created', 'modified',),
-                ('get_playing_state', 'get_waiting_count', 'get_item_count',),
+                ('get_playing_state', 'get_waiting_count', 'get_item_count',
+                 'delete_old_tracks',),
              ),
             },
         ),
     )
+
+    class Media:
+        js = ('%squeuer_select_old_deletes.js' % (settings.STATIC_URL),)
 
     def get_playing_state(self, obj=None):
         if not obj:
@@ -66,5 +71,12 @@ class AssetQueueAdmin(admin.ModelAdmin):
             return u''
         return obj.item_set.count()
     get_item_count.short_description = 'Total'
+
+    def delete_old_tracks(self, obj=None):
+        if not obj:
+            return u''
+        return u'<span id="select_old_deletes_trigger">Select all</span>'
+    delete_old_tracks.short_description = 'Delete played tracks'
+    delete_old_tracks.allow_tags = True
 
 admin.site.register(AssetQueue, AssetQueueAdmin)
