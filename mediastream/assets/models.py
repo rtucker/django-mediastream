@@ -318,9 +318,9 @@ class Track(Asset):
 
     def get_streamable_assetfile(self, **kwargs):
         for candidate in self.assetfile_set.all():
-	        fn = candidate.contents.name.lower()
-            if os.path.splitext(fn)[1] in ['.mp3', '.m4a', '.spx', '.ogg']:
-	            return candidate
+            fn = candidate.contents.name.lower()
+        if os.path.splitext(fn)[1] in ['.mp3', '.m4a', '.spx', '.ogg']:
+	    return candidate
         raise AssetFile.DoesNotExist("No suitable content found")
 
     def get_streaming_url(self, **kwargs):
