@@ -13,6 +13,7 @@ import urllib
 import urlparse
 
 RECENT_DAYS=7
+TRACKS_OUT=3
 
 @login_required
 def music_player(request):
@@ -120,6 +121,7 @@ def player_event_handler(request):
         elif player_state == 'jPlayer_ended':
             current_track.state = 'played'
             current_track.save()
+            remaining -= 1
             if play_pointer_pk:
                 try:
                     play_pointer = Play.objects.get(pk=play_pointer_pk)
@@ -146,7 +148,7 @@ def player_event_handler(request):
     # Top off the user's playlist
     d['tracks'] = []
     shortage = False
-    while (len(d['tracks']) + remaining) < 3:
+    while (len(d['tracks']) + remaining) < TRACKS_OUT:
         try:
             if not offer_pointer:
                 next_track = queue.item_set.all()[0]
