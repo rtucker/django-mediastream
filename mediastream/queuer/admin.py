@@ -9,8 +9,8 @@ class AssetQueueItemInline(admin.TabularInline):
     model = AssetQueueItem
     form = AdminAssetQueueItemForm
     extra = 0
-    fields = ['content_type', 'object_id', 'artist', 'album', 'state']
-    readonly_fields = ['state', 'artist', 'album']
+    fields = ['content_type', 'object_id', 'artist', 'album', 'state', 'modified']
+    readonly_fields = ['state', 'artist', 'album', 'modified']
 
     def artist(self, obj=None):
         if not obj:
