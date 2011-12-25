@@ -8,8 +8,11 @@ from django.utils import simplejson
 from mediastream.assets.models import AssetFile, Track, Play
 from mediastream.queuer.models import AssetQueue, AssetQueueItem
 
+from datetime import datetime, timedelta
 import urllib
 import urlparse
+
+RECENT_DAYS=7
 
 @login_required
 def music_player(request):
@@ -179,7 +182,7 @@ def player_event_handler(request):
             randtrack = None
             while not randtrack:
                 randtrack = Track.objects.get_random()
-                if AssetQueueItem.objects.filter(object_id=randtrack.pk).exists():
+                if Play.objects.filter(modified__gt=datetime.now()-timedelta(days=RECENT_DAYS), asset=randtrack).exists():
                     randtrack = None
                 else:
                     aqi = AssetQueueItem.objects.create(
