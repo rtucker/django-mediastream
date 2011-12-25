@@ -267,6 +267,14 @@ class TrackManager(models.Manager):
 
         return results
 
+    def get_random(self):
+        "Returns a random track."
+        # Hat tip: http://stackoverflow.com/a/6405601/205400
+        from random import randint
+        last = self.count() - 1
+        index = randint(0, last)
+        return self.all()[index]
+
 class Track(Asset):
     """
     One track from an album.

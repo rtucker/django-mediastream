@@ -5,7 +5,7 @@ from django.shortcuts import render_to_response, redirect
 from django.template import RequestContext
 from django.utils import simplejson
 
-from mediastream.assets.models import AssetFile
+from mediastream.assets.models import AssetFile, Track
 from mediastream.queuer.models import AssetQueue, AssetQueueItem
 
 import urllib
@@ -148,10 +148,19 @@ def player_event_handler(request):
         except AssetQueueItem.DoesNotExist:
             # queue is empty!
             shortage = True
-            break
+            randtrack = None
+            while not randtrack:
+                randtrack = Track.objects.get_random()
+                if AssetQueueItem.objects.filter(object_id=randtrack.pk).exists():
+                    randtrack = None
+                else:
+                    aqi = AssetQueueItem.objects.create(
+                        queue = queue,
+                        asset_object = randtrack,
+                    )
 
     if shortage:
-        d['response'] = u"You're almost out of music, {0}.  What are you going to do?".format(request.user.first_name or request.user.username)
+        d['response'] = u"I'm picking random tracks for you, {0}.".format(request.user.first_name or request.user.username)
 
     # God save the state
     request.session['active_queue'] = queue.pk
