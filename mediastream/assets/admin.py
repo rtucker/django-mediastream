@@ -91,5 +91,35 @@ class TrackAdmin(admin.ModelAdmin):
 admin.site.register(Track, TrackAdmin)
 
 class PlayAdmin(admin.ModelAdmin):
-    readonly_fields = ['asset', 'previous_play', 'context', 'played', 'queue']
+    list_display = ['created', 'get_asset_name', 'played']
+    fields = ['get_asset_name', 'get_play_prev', 'get_play_next', 'context', 'played', 'queue', 'created']
+    readonly_fields = ['get_asset_name', 'get_play_prev', 'get_play_next', 'context', 'played', 'queue', 'created']
+
+    def get_asset_name(self, obj):
+        if hasattr(obj.asset, 'track'):
+            return u"{0} - {1} <i>({2})</i>".format(obj.asset.track.artist.name, obj.asset.track.name, obj.asset.track.album.name)
+        else:
+            return obj.asset.__unicode__()
+    get_asset_name.short_description = "Asset"
+    get_asset_name.allow_tags = True
+
+    def get_play_next(self, obj):
+        try:
+            nextplay = Play.objects.get(previous_play=obj)
+            return u'<a href="../{0}/">{1}</a>'.format(nextplay.pk, nextplay)
+        except:
+            return None
+    get_play_next.short_description = "Next play"
+    get_play_next.allow_tags = True
+
+    def get_play_prev(self, obj):
+        try:
+            prevplay = obj.previous_play
+            return u'<a href="../{0}/">{1}</a>'.format(prevplay.pk, prevplay)
+        except:
+            return None
+    get_play_prev.short_description = "Previous play"
+    get_play_prev.allow_tags = True
+
+
 admin.site.register(Play, PlayAdmin)
