@@ -61,6 +61,7 @@ class AssetFile(Thing):
             if self.mimetype == 'audio/mpeg': exten = '.mp3'
             elif self.mimetype == 'audio/mp4': exten = '.m4a'
             elif self.mimetype == 'audio/x-flac': exten = '.flac'
+            elif self.mimetype == 'audio/ogg': exten = '.ogg'
             else: exten = mimetypes.guess_extension(self.mimetype, False)
             return u"{0}{1}".format(self.asset.track.name, exten)
         else:
@@ -318,7 +319,7 @@ class Track(Asset):
     def get_streamable_assetfile(self, **kwargs):
         for candidate in self.assetfile_set.all():
 	        fn = candidate.contents.name.lower()
-	        if fn.endswith('.mp3') or fn.endswith('.m4a'):
+            if os.path.splitext(fn)[1] in ['.mp3', '.m4a', '.spx', '.ogg']:
 	            return candidate
         raise AssetFile.DoesNotExist("No suitable content found")
 
@@ -327,7 +328,9 @@ class Track(Asset):
         return self.get_streamable_assetfile().contents.url
 
     def get_streaming_exten(self, **kwargs):
-        return self.get_streamable_assetfile().contents.name.split('.')[-1:][0]
+        ext = self.get_streamable_assetfile().contents.name.split('.')[-1:][0]
+        if ext in ['spx', 'ogg']: ext = 'oga'
+        return ext
 
     def _inspect_files(self, qs=None, update_artist=False, update_album=False):
         if not qs:

@@ -13,7 +13,7 @@
           });
         },
         swfPath: "{{ STATIC_URL }}",
-        supplied: "m4a, mp3, ogg",
+        supplied: "{% block player_supplied %}m4a, mp3{% endblock %}",
         wmode: "window" // for Firefox 3.6 compatibility
       });
     });
