@@ -392,3 +392,31 @@ class Track(Asset):
                 )
                 apic_obj.contents.save(apic_obj_fn, ContentFile(apic['data']))
                 apic_obj.save()
+
+class Play(models.Model):
+    "Logs when an asset has been played."
+    CONTEXT_STANDALONE = 0
+    CONTEXT_QUEUE = 1
+    CONTEXT_CHOICES = (
+                        (CONTEXT_STANDALONE, 'standalone player'),
+                        (CONTEXT_QUEUE, 'queue player'),
+                      )
+
+    created         = models.DateTimeField(auto_now_add=True)
+    modified        = models.DateTimeField(auto_now=True)
+
+    asset           = models.ForeignKey(Asset)
+
+    played          = models.BooleanField(default=True)
+
+    context         = models.SmallIntegerField(choices=CONTEXT_CHOICES, default=CONTEXT_STANDALONE)
+    previous_play   = models.ForeignKey('self', blank=True, null=True, on_delete=models.SET_NULL)
+    queue           = models.ForeignKey('queuer.AssetQueue', blank=True, null=True, on_delete=models.SET_NULL)
+
+    def __unicode__(self):
+        return u"Play {0} ({1}, {2}, {3})".format(
+            self.pk,
+            self.asset.name,
+            'played' if self.played else 'not played',
+            self.get_context_display(),
+        )

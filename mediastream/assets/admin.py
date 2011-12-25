@@ -89,3 +89,7 @@ class TrackAdmin(admin.ModelAdmin):
     get_pretty_length.admin_order_field = 'length'
 
 admin.site.register(Track, TrackAdmin)
+
+class PlayAdmin(admin.ModelAdmin):
+    readonly_fields = ['asset', 'previous_play', 'context', 'played', 'queue']
+admin.site.register(Play, PlayAdmin)

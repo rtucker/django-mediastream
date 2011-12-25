@@ -5,7 +5,7 @@ from django.shortcuts import render_to_response, redirect
 from django.template import RequestContext
 from django.utils import simplejson
 
-from mediastream.assets.models import AssetFile, Track
+from mediastream.assets.models import AssetFile, Track, Play
 from mediastream.queuer.models import AssetQueue, AssetQueueItem
 
 import urllib
@@ -32,6 +32,7 @@ def music_player(request):
     request.session['active_queue'] = queue.pk
     request.session['first_refresh'] = True
     request.session['offer_pointer'] = None
+    request.session['play_pointer'] = None
 
     return render_to_response('player/queue_play.html', {}, context_instance=RequestContext(request))
 
@@ -55,6 +56,9 @@ def player_event_handler(request):
 
     # The last track offered
     offer_pointer_pk = request.session.get('offer_pointer', None)
+
+    # The current Play
+    play_pointer_pk = request.session.get('play_pointer', None)
 
     # Remaining tracks
     remaining = int(post.get('playlistLength', 0))
@@ -93,10 +97,34 @@ def player_event_handler(request):
             AssetQueueItem.objects.filter(pk__lt=current_track.pk, state='playing').update(state='skipped')
             current_track.state = 'playing'
             current_track.save()
+            play_pointer = Play.objects.create(
+                asset = current_track.asset,
+                context = Play.CONTEXT_QUEUE,
+                queue = queue,
+                played = False,
+            )
+
+            if play_pointer_pk:
+                try:
+                    old_play = Play.objects.get(pk=play_pointer_pk)
+                    play_pointer.previous_play = old_play
+                    play_pointer.save()
+                except:
+                    pass
+
+            play_pointer_pk = play_pointer.pk
 
         elif player_state == 'jPlayer_ended':
             current_track.state = 'played'
             current_track.save()
+            if play_pointer_pk:
+                try:
+                    play_pointer = Play.objects.get(pk=play_pointer_pk)
+                    play_pointer.played = True
+                    play_pointer.save()
+                    play_pointer_pk = play_pointer.pk
+                except:
+                    pass
 
         elif player_state == 'jPlayer_error':
             # oh no!
@@ -166,4 +194,5 @@ def player_event_handler(request):
     request.session['active_queue'] = queue.pk
     request.session['first_refresh'] = False
     request.session['offer_pointer'] = offer_pointer.pk
+    request.session['play_pointer'] = play_pointer_pk
     return HttpResponse(simplejson.dumps(d), mimetype="application/json")
