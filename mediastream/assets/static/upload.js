@@ -4,17 +4,26 @@ $(document).ready(function() {
 
     // upload progress bar
     // see https://github.com/drogus/jquery-upload-progress
-    $('form').uploadProgress({
+    $('form#upform').uploadProgress({
         /* scripts locations for safari */
         jqueryPath: jqpath,
         uploadProgressPath: uppath,
-        /* function called each time bar is updated */
-        uploading: function(upload) {$('#percents').html(upload.percents+'%');},
-        /* selector or element that will be updated */
-        progressBar: "#progressbar",
-        /* progress reports url */
-        progressUrl: "/progress",
-        /* how often will bar be updated */
+        start: function () {
+            $("#upload_form").hide();
+            filename = $("#id_file").val().split(/[\/\\]/).pop();
+            $("#progress_status").html("Uploading " + filename + "...");
+            $("#progress_container").show();
+        },
+        uploading: function(upload) {
+            if (upload.percents == 100) {
+                window.clearTimeout(this.timer);
+                $("#progress_filename").html("Processing " + filename + "...");
+            } else {
+                $("#progress_filename").html("Uploading " + filename + ": " + upload.percents + "%");
+            };
+        },
+        progressBar: "#progress_indicator",
+        progressUrl: "/assets/upload/progress",
         interval: 2000
     });
 });

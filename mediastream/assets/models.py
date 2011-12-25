@@ -1,8 +1,9 @@
 from django.conf import settings
+from django.core.files import File
 from django.core.files.base import ContentFile
 from django.core.urlresolvers import reverse
 from django.db import models
-from django.db.models import Avg, Max, Min, Count
+from django.db.models import Avg, Max, Min, Count, Q
 
 from mutagen.m4a import M4ACover
 from mutagen.mp3 import MPEGInfo
@@ -10,6 +11,10 @@ from mutagen.mp3 import MPEGInfo
 from mediastream.assets import MIMETYPE_CHOICES, _get_upload_path
 from mediastream.assets import mt as mimetypes
 from mediastream.utilities.mediainspector import Inspector
+
+import os
+from tempfile import NamedTemporaryFile
+import zipfile
 
 class Thing(models.Model):
     "Abstract base class for things with names."
@@ -55,6 +60,7 @@ class AssetFile(Thing):
         if hasattr(self.asset, 'track') and self.mimetype.startswith('audio'):
             if self.mimetype == 'audio/mpeg': exten = '.mp3'
             elif self.mimetype == 'audio/mp4': exten = '.m4a'
+            elif self.mimetype == 'audio/x-flac': exten = '.flac'
             else: exten = mimetypes.guess_extension(self.mimetype, False)
             return u"{0}{1}".format(self.asset.track.name, exten)
         else:
@@ -154,7 +160,7 @@ class Album(Thing):
 
     def get_track_admin_links(self):
         out = u'<ul>'
-        for track in self.track_set.all().order_by('track_number'):
+        for track in self.track_set.all().order_by('disc_number', 'track_number'):
             out += (u'<li><a href="{url}">Track {tn}</a>: '
                     u'{artist} / {name}</li>'
                    ).format(
@@ -171,6 +177,94 @@ class Album(Thing):
         return out
     get_track_admin_links.allow_tags = True
     get_track_admin_links.short_description = 'Tracks'
+
+class TrackManager(models.Manager):
+    def create_from_file(self, stash):
+        if not isinstance(stash, file):
+            filename = stash
+            stash = open(stash)
+        else:
+            filename = getattr(stash, 'name', 'input_file')
+
+        inspfp = NamedTemporaryFile(suffix=os.path.splitext(filename)[1])
+        inspfp.write(stash.read())
+        stash.seek(0)
+        inspfp.seek(0)
+        inspobj = Inspector(fileobj=inspfp)
+
+        files = []
+
+        if inspobj.mimetype == 'application/zip':
+            myzip = zipfile.ZipFile(stash)
+            count = 0
+            for member in myzip.namelist():
+                # We could just use ZipFile.open, but we need to
+                # be able to seek.
+                if member.endswith('/'):
+                    continue
+                mytarget = NamedTemporaryFile()
+                mytarget.write(myzip.read(member))
+                mytarget.seek(0)
+                myinspfp = NamedTemporaryFile()
+                myinspfp.write(mytarget.read())
+                myinspobj = Inspector(fileobj=myinspfp)
+                mytarget.seek(0)
+                files.append((mytarget, myinspobj))
+                count += 1
+        elif inspobj.mimetype.startswith('audio/'):
+            stash.seek(0)
+            files.append((stash, inspobj))
+        else:
+            raise Exception('Could not figure out what to do with {0} of type {1}.'.format(filename, inspobj.mimetype))
+
+        results = []
+
+        for f, i in files:
+            mandatory = ['artist', 'album', 'name']
+            proceed = True
+            for attrib in mandatory:
+                if not getattr(i, attrib, None):
+                    proceed = False
+
+            if not proceed:
+                results.append(None)
+                continue
+
+            art, cre = Artist.objects.get_or_create(
+                name__iexact=i.artist,
+                defaults={
+                    'name': i.artist,
+                },
+            )
+            alb, cre = Album.objects.get_or_create(
+                name__iexact=i.album,
+                defaults={
+                    'name': i.album,
+                    'is_compilation': getattr(i, 'is_compilation', False),
+                },
+            )
+            t, cre = self.get_or_create(
+                name__iexact=i.name,
+                album=alb,
+                artist=art,
+                defaults={
+                    'name': i.name,
+                    'track_number': getattr(i, 'track', None),
+                    'disc_number': getattr(i, 'disc', None),
+                    'length': getattr(i, 'length', None),
+                },
+            )
+            af = AssetFile.objects.create(
+                name=i.name,
+                asset=t,
+                contents=File(f),
+                mimetype=i.mimetype,
+            )
+
+            t._inspect_files(qs=t.assetfile_set.filter(pk=af.pk))
+            results.append(t)
+
+        return results
 
 class Track(Asset):
     """
@@ -197,6 +291,8 @@ class Track(Asset):
         order_with_respect_to   = 'album'
         ordering                = ['disc_number', 'track_number']
 
+    objects = TrackManager()
+
     def get_display_name(self):
         return u'{0} - {1}'.format(self.artist, self.name)
 
@@ -219,12 +315,19 @@ class Track(Asset):
             return qs[0].contents.url
         return None
 
+    def get_streamable_assetfile(self, **kwargs):
+        for candidate in self.assetfile_set.all():
+	        fn = candidate.contents.name.lower()
+	        if fn.endswith('.mp3') or fn.endswith('.m4a'):
+	            return candidate
+        raise AssetFile.DoesNotExist("No suitable content found")
+
     def get_streaming_url(self, **kwargs):
         "Returns the best URL for this object."
-        return self.assetfile_set.all()[0].contents.url
+        return self.get_streamable_assetfile().contents.url
 
     def get_streaming_exten(self, **kwargs):
-        return self.assetfile_set.all()[0].contents.name[-3:]
+        return self.get_streamable_assetfile().contents.name.split('.')[-1:][0]
 
     def _inspect_files(self, qs=None, update_artist=False, update_album=False):
         if not qs:
