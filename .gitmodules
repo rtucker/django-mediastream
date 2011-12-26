@@ -1,0 +1,3 @@
+[submodule "src/jPlayer"]
+	path = src/jPlayer
+	url = git://github.com/rtucker/jPlayer.git
