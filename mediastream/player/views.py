@@ -226,7 +226,7 @@ def collect_rating(request):
     # Get our asset by assetpk
     asset_pk = request.POST.get('assetpk', None)
     try:
-        asset = Asset.objects.get(pk=asset_pk).asset
+        asset = Asset.objects.get(pk=asset_pk)
     except Asset.DoesNotExist:
         asset = None
 
