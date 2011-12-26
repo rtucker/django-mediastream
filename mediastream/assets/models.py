@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.core.files import File
 from django.core.files.base import ContentFile
 from django.core.urlresolvers import reverse
@@ -412,6 +413,8 @@ class Play(models.Model):
     context         = models.SmallIntegerField(choices=CONTEXT_CHOICES, default=CONTEXT_STANDALONE)
     previous_play   = models.ForeignKey('self', blank=True, null=True, on_delete=models.SET_NULL)
     queue           = models.ForeignKey('queuer.AssetQueue', blank=True, null=True, on_delete=models.SET_NULL)
+    in_groove       = models.NullBooleanField(blank=True, null=True,
+                                          verbose_name="Is this set grooving?")
 
     def __unicode__(self):
         return u"Play {0} ({1}, {2}, {3})".format(
@@ -420,3 +423,28 @@ class Play(models.Model):
             'played' if self.played else 'not played',
             self.get_context_display(),
         )
+
+class Rating(models.Model):
+    "A user's rating of an asset"
+    RATING_NONE = 0
+    RATING_1    = 1
+    RATING_2    = 2
+    RATING_3    = 3
+    RATING_4    = 4
+    RATING_5    = 5
+    RATING_CHOICES = (
+                        (RATING_NONE, 'none'),
+                        (RATING_1, 'blows major goats'),
+                        (RATING_2, 'not my thing right now'),
+                        (RATING_3, 'not bad'),
+                        (RATING_4, 'pretty good'),
+                        (RATING_5, 'great'),
+                     )
+
+    created     = models.DateTimeField(auto_now_add=True)
+    modified    = models.DateTimeField(auto_now=True)
+
+    asset       = models.ForeignKey(Asset)
+    user        = models.ForeignKey(User)
+    play        = models.ForeignKey(Play, blank=True, null=True, on_delete=models.SET_NULL)
+    rating      = models.SmallIntegerField(choices=RATING_CHOICES, default=RATING_NONE)
