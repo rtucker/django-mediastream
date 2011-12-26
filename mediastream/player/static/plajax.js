@@ -1,3 +1,17 @@
+// Props to: http://stackoverflow.com/a/1987545/205400
+$.fn.stars = function() {
+    return $(this).each(function() {
+        // Get the value
+        var val = parseFloat($(this).html());
+        // Make sure that the value is in 0 - 5 range, multiply to get width
+        var size = Math.max(0, (Math.min(5, val))) * 16;
+        // Create stars holder
+        var $span = $('<span />').width(size);
+        // Replace the numerical value with stars
+        $(this).html($span);
+    });
+}
+
 var send_event = function(event){
     if(jplaylist.current > 0){
         jplaylist.remove(0);
@@ -17,11 +31,74 @@ var send_event = function(event){
     bug_server(data);
 }
 
+var handle_groove = function(event){
+    var groove_box = this;
+    var data = false;
+    if($(this).attr('checked')) {
+        $(this).siblings().attr('checked', false);
+        var data = {
+            asset:  jplaylist.playlist[jplaylist.current].pk,
+            groove: $(this).val()
+        };
+    } else if($(this).siblings(':checked').length < 1) {
+        var data = {
+            asset:  jplaylist.playlist[jplaylist.current].pk,
+            groove: 'pokerface'
+        };
+    }
+    if(data) {
+        $.ajaxQueue({
+            type: 'POST',
+            url: player_rating_url,
+            data: data,
+            dataType: 'json',
+            success: function(reply){
+                // server sends: response
+                $("#playeralerts").text(reply.response);
+            }
+        });
+    }
+}
+
+var handle_rating = function(event){
+    var offset = $(this).offset();
+    var star_span = this;
+    var x = Math.floor(event.pageX - offset.left);
+    var rating = Math.floor(x * 5 / $(this).width());
+    var data = {
+        asset:  jplaylist.playlist[jplaylist.current].pk,
+        rating: rating + 1
+    };
+    $.ajaxQueue({
+        type: 'POST',
+        url: player_rating_url,
+        data: data,
+        dataType: 'json',
+        success: function(reply){
+            // server sends: response, rating
+            $("#playeralerts").text(reply.response);
+            $(star_span).html(reply.rating);
+            $(star_span).stars();
+        }
+    });
+}
+
 var reticulate_splines = function(){
     if(jplaylist.playlist[jplaylist.current].poster) {
         $("div#albumart img").attr("src", jplaylist.playlist[jplaylist.current].poster).show('slow');
     } else {
         $("div#albumart img").hide('slow');
+    }
+
+    if($('li.jp-playlist-current').has('div.starbox').length < 1) {
+        $('li.jp-playlist-current > div').append('<div class="starbox"></div>');
+        $('div.starbox').append('<span class="stars">0</span>');
+        $('div.starbox > span.stars').stars();
+        $('div.starbox > span.stars').click(handle_rating);
+        $('div.starbox').append('<span class="groove"></span>');
+        $('span.groove').append('This set: <input class="groovebox" value="nope" type="checkbox">not doing it for me</input>');
+        $('span.groove').append('<input class="groovebox" value="awyeah" type="checkbox">grooving fiercely</input>');
+        $('input.groovebox').click(handle_groove);
     }
 }
 

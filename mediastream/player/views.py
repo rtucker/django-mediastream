@@ -1,11 +1,11 @@
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count
 from django.http import HttpResponse
-from django.shortcuts import render_to_response, redirect
+from django.shortcuts import get_object_or_404, render_to_response, redirect
 from django.template import RequestContext
 from django.utils import simplejson
 
-from mediastream.assets.models import AssetFile, Track, Play
+from mediastream.assets.models import Asset, AssetFile, Play, Rating, Track
 from mediastream.queuer.models import AssetQueue, AssetQueueItem
 
 from datetime import datetime, timedelta
@@ -200,4 +200,87 @@ def player_event_handler(request):
     request.session['first_refresh'] = False
     request.session['offer_pointer'] = offer_pointer.pk
     request.session['play_pointer'] = play_pointer_pk
+    return HttpResponse(simplejson.dumps(d), mimetype="application/json")
+
+@login_required
+def collect_rating(request):
+    GROOVE_STATES = {
+        'awyeah': True,
+        'nope': False,
+        'pokerface': None,
+    }
+
+    d = {}
+    resp = []
+
+    if not request.is_ajax() or request.method != 'POST':
+        return HttpResponse('oh no')
+
+    # We expect a rating and a groove.
+    groove = request.POST.get('groove', None)
+    rating = request.POST.get('rating', None)
+
+    # Get our asset by AssetQueueItem
+    asset_pk = request.POST.get('asset', None)
+    try:
+        asset = AssetQueueItem.objects.get(pk=asset_pk).asset
+    except Asset.DoesNotExist:
+        asset = None
+
+    # We should have a play_pointer in the session.
+    play_pointer_pk = request.session.get('play_pointer', None)
+    try:
+        play = Play.objects.get(pk=play_pointer_pk)
+    except Play.DoesNotExist:
+        play = None
+
+    if play and asset and asset.pk != play.asset.pk:
+        # We might have a stale session.
+        play = None
+
+    if play and not asset:
+        asset = play.asset
+
+    # Handle rating, 1-5 stars.
+    if rating and asset:
+        rating = int(rating)
+
+        try:
+            rating_obj = Rating.objects.get(play=play)
+        except Rating.DoesNotExist:
+            rating_obj = Rating()
+
+        if rating == rating_obj.rating:
+            rating = 0
+
+        if rating > 0:
+            rating_obj.asset = asset
+            rating_obj.user = request.user
+            rating_obj.play = play
+            rating_obj.rating = rating
+            rating_obj.save()
+            rating_obj = Rating.objects.get(pk=rating_obj.pk)
+            d['rating'] = rating_obj.rating
+            resp.append("I've recorded your {0}-star ({1}) review.".format(
+                 rating_obj.rating, rating_obj.get_rating_display()))
+        else:
+            rating_obj.delete()
+            d['rating'] = 0
+            resp.append("Old rating removed.")
+
+    # Handle groove, which is related to how well this track fits
+    # into a stream of plays.
+    if groove and play:
+        play.in_groove = GROOVE_STATES.get(groove, None)
+        play.save()
+
+        if play.in_groove is True:
+            resp.append("Acknowledging ongoing groove.")
+        elif play.in_groove is False:
+            resp.append("Sorry about harshing the mellow.")
+        else:
+            resp.append("Okay.")
+
+    d['response'] = ' '.join(resp)
+
     return HttpResponse(simplejson.dumps(d), mimetype="application/json")

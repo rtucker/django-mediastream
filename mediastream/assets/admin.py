@@ -92,8 +92,8 @@ admin.site.register(Track, TrackAdmin)
 
 class PlayAdmin(admin.ModelAdmin):
     list_display = ['created', 'get_asset_name', 'played']
-    fields = ['get_asset_name', 'get_play_prev', 'get_play_next', 'context', 'played', 'queue', 'created']
-    readonly_fields = ['get_asset_name', 'get_play_prev', 'get_play_next', 'context', 'played', 'queue', 'created']
+    fields = ['get_asset_name', 'get_play_prev', 'get_play_next', 'context', 'played', 'queue', 'created', 'in_groove']
+    readonly_fields = ['get_asset_name', 'get_play_prev', 'get_play_next', 'context', 'played', 'queue', 'created', 'in_groove']
 
     def get_asset_name(self, obj):
         if hasattr(obj.asset, 'track'):
@@ -120,6 +120,8 @@ class PlayAdmin(admin.ModelAdmin):
             return None
     get_play_prev.short_description = "Previous play"
     get_play_prev.allow_tags = True
-
-
 admin.site.register(Play, PlayAdmin)
+
+class RatingAdmin(admin.ModelAdmin):
+    pass
+admin.site.register(Rating, RatingAdmin)

@@ -410,11 +410,18 @@ class Play(models.Model):
 
     played          = models.BooleanField(default=True)
 
-    context         = models.SmallIntegerField(choices=CONTEXT_CHOICES, default=CONTEXT_STANDALONE)
-    previous_play   = models.ForeignKey('self', blank=True, null=True, on_delete=models.SET_NULL)
-    queue           = models.ForeignKey('queuer.AssetQueue', blank=True, null=True, on_delete=models.SET_NULL)
+    context         = models.SmallIntegerField(
+                            choices=CONTEXT_CHOICES,
+                            default=CONTEXT_STANDALONE)
+    previous_play   = models.ForeignKey('self',
+                            blank=True, null=True,
+                            on_delete=models.SET_NULL)
+    queue           = models.ForeignKey('queuer.AssetQueue',
+                            blank=True, null=True,
+                            on_delete=models.SET_NULL)
     in_groove       = models.NullBooleanField(blank=True, null=True,
-                                          verbose_name="Is this set grooving?")
+                            default=None,
+                            verbose_name="Is this set grooving?")
 
     def __unicode__(self):
         return u"Play {0} ({1}, {2}, {3})".format(
@@ -448,3 +455,11 @@ class Rating(models.Model):
     user        = models.ForeignKey(User)
     play        = models.ForeignKey(Play, blank=True, null=True, on_delete=models.SET_NULL)
     rating      = models.SmallIntegerField(choices=RATING_CHOICES, default=RATING_NONE)
+
+    def __unicode__(self):
+        return u"Rating {0}: {1}, {2}-star ({3})".format(
+            self.pk,
+            self.asset.name,
+            self.rating,
+            self.get_rating_display(),
+        )

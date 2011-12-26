@@ -1,5 +1,6 @@
 {% extends "player.html" %}
 {% block player_script %}
+    <link type="text/css" href="{{ STATIC_URL }}stars.css" rel="stylesheet" />
     <script type="text/javascript" src="{{ STATIC_URL }}ajax_csrf.js"></script>
     <script type="text/javascript" src="{{ STATIC_URL }}jplayer.playlist.min.js"></script>
     <script type="text/javascript" src="{{ STATIC_URL }}jQuery.ajaxQueue.min.js"></script>
@@ -7,6 +8,7 @@
     <script type="text/javascript">
     var jplaylist;
     var player_event_url = "{% url player_event %}";
+    var player_rating_url = "{% url player_rating %}";
     var user_id = "{{ user.id }}";
     $(document).ready(function(){
         jplaylist = new jPlayerPlaylist({
