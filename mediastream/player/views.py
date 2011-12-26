@@ -165,6 +165,8 @@ def player_event_handler(request):
             d['tracks'].append({
                 key: url,
                 'pk': next_track.pk,
+                'assetPk': next_track.asset.pk,
+                'album': unicode(next_track.asset.track.album),
                 'artist': unicode(next_track.asset.track.artist),
                 'title': unicode(next_track.asset.track),
                 'free': request.user.has_perm('asset.can_download_asset', next_track.asset),
@@ -221,12 +223,20 @@ def collect_rating(request):
     groove = request.POST.get('groove', None)
     rating = request.POST.get('rating', None)
 
-    # Get our asset by AssetQueueItem
-    asset_pk = request.POST.get('asset', None)
+    # Get our asset by assetpk
+    asset_pk = request.POST.get('assetpk', None)
     try:
-        asset = AssetQueueItem.objects.get(pk=asset_pk).asset
+        asset = Asset.objects.get(pk=asset_pk).asset
     except Asset.DoesNotExist:
         asset = None
+
+    # Fallback: legacy JS sends asset queue item pk, not asset pk
+    if not asset:
+        assetqueueitem_pk = request.POST.get('asset', None)
+        try:
+            asset = AssetQueueItem.objects.get(pk=asset_pk).asset
+        except AssetQueueItem.DoesNotExist:
+            asset = None
 
     # We should have a play_pointer in the session.
     play_pointer_pk = request.session.get('play_pointer', None)

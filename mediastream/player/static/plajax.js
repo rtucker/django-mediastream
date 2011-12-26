@@ -37,12 +37,12 @@ var handle_groove = function(event){
     if($(this).attr('checked')) {
         $(this).siblings().attr('checked', false);
         var data = {
-            asset:  jplaylist.playlist[jplaylist.current].pk,
+            assetpk:  jplaylist.playlist[jplaylist.current].assetPk,
             groove: $(this).val()
         };
     } else if($(this).siblings(':checked').length < 1) {
         var data = {
-            asset:  jplaylist.playlist[jplaylist.current].pk,
+            assetpk:  jplaylist.playlist[jplaylist.current].assetPk,
             groove: 'pokerface'
         };
     }
