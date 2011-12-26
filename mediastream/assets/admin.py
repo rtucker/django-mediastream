@@ -80,7 +80,7 @@ class TrackAdmin(admin.ModelAdmin):
     ordering        = ['artist']
 
     class Media:
-        js = ('%s/collapse_filter.js' % (settings.STATIC_URL),)
+        js = ('%scollapse_filter.js' % (settings.STATIC_URL),)
 
     def get_pretty_length(self, obj):
         if obj.length:
