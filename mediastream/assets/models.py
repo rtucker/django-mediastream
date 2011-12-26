@@ -13,6 +13,7 @@ from mediastream.assets import MIMETYPE_CHOICES, _get_upload_path
 from mediastream.assets import mt as mimetypes
 from mediastream.utilities.mediainspector import Inspector
 
+from datetime import datetime, timedelta
 import os
 from tempfile import NamedTemporaryFile
 import zipfile
@@ -431,6 +432,14 @@ class Play(models.Model):
             self.get_context_display(),
         )
 
+class RatingManager(models.Manager):
+    def get_average_rating(self, asset, history=None):
+        qs = self.filter(asset=asset)
+        if history:
+            qs = qs.filter(modified__gte=datetime.now()-history)
+        qs = qs.aggregate(Avg('rating'))
+        return qs['rating__avg']
+
 class Rating(models.Model):
     "A user's rating of an asset"
     RATING_NONE = 0
@@ -455,6 +464,8 @@ class Rating(models.Model):
     user        = models.ForeignKey(User)
     play        = models.ForeignKey(Play, blank=True, null=True, on_delete=models.SET_NULL)
     rating      = models.SmallIntegerField(choices=RATING_CHOICES, default=RATING_NONE)
+
+    objects = RatingManager()
 
     def __unicode__(self):
         return u"Rating {0}: {1}, {2}-star ({3})".format(

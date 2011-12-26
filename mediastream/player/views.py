@@ -169,6 +169,7 @@ def player_event_handler(request):
                 'title': unicode(next_track.asset.track),
                 'free': request.user.has_perm('asset.can_download_asset', next_track.asset),
                 'poster': poster or '',
+                'averageRating': Rating.objects.get_average_rating(next_track.asset) or 0,
             })
             next_track.state = 'offered'
             next_track.save()
