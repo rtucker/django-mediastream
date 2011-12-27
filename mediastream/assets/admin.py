@@ -82,17 +82,18 @@ class TrackAdmin(admin.ModelAdmin):
                        'artwork_preview', 'total_plays',]
 
     fieldsets       = (
+        ('Media Summary', {
+            'classes': ('collapse', 'float-right',),
+            'fields': ('artwork_preview', 'get_streamable_assetfile',),
+        }),
         ('Track Data', {
-            'classes': ('maincol', 'float-left',),
+            'classes': (),
             'fields': ('name', 'artist', 'album', 'year',
                         ('disc_number', 'track_number',),
                         ('length', 'bpm',),
                         ('total_plays', 'average_rating',),
+                        'skip_random',
                       ),
-        }),
-        ('Media Summary', {
-            'classes': ('asidecol',),
-            'fields': ('artwork_preview', 'get_streamable_assetfile',),
         }),
     )
 
@@ -103,8 +104,7 @@ class TrackAdmin(admin.ModelAdmin):
         candidate = obj.get_artwork_url()
         if candidate:
             return u'<img src="{0}" width="420px">'.format(candidate)
-        else:
-            return u''
+        return u''
     artwork_preview.allow_tags=True
 
     def get_pretty_length(self, obj):
