@@ -272,9 +272,10 @@ class TrackManager(models.Manager):
         "Returns a random track."
         # Hat tip: http://stackoverflow.com/a/6405601/205400
         from random import randint
-        last = self.count() - 1
+        qs = self.exclude(skip_random=True)
+        last = qs.count() - 1
         index = randint(0, last)
-        return self.all()[index]
+        return qs[index]
 
 class Track(Asset):
     """
@@ -295,6 +296,8 @@ class Track(Asset):
                     verbose_name="Duration (seconds)")
     bpm         = models.FloatField(blank=True, null=True,
                     verbose_name="Beats per minute")
+    skip_random = models.BooleanField(default=False,
+                    help_text="Don't play during random mode")
 
     class Meta:
         order_with_respect_to   = 'album'
