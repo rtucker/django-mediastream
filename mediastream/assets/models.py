@@ -51,8 +51,7 @@ class AssetFile(Thing):
     contents    = models.FileField(upload_to=_get_upload_path, max_length=255)
     mimetype    = models.CharField(max_length=255, choices=MIMETYPE_CHOICES,
                                    blank=True, verbose_name="MIME type")
-    length      = models.FloatField(blank=True, null=True,
-                    help_text="Length of file, in seconds")
+    length      = models.FloatField(blank=True, null=True,)
 
     class Meta:
         order_with_respect_to = 'asset'
@@ -293,10 +292,9 @@ class Track(Asset):
     track_number = models.IntegerField(blank=True, null=True)
 
     length      = models.IntegerField(blank=True, null=True,
-                    help_text="Duration of track, in seconds.")
+                    verbose_name="Duration (seconds)")
     bpm         = models.FloatField(blank=True, null=True,
-                    help_text="unce unce unce unce unce",
-                    verbose_name="BPM")
+                    verbose_name="Beats per minute")
 
     class Meta:
         order_with_respect_to   = 'album'
@@ -332,6 +330,7 @@ class Track(Asset):
             if os.path.splitext(fn)[1] in ['.mp3', '.m4a', '.spx', '.ogg']:
                 return candidate
         raise AssetFile.DoesNotExist("No suitable content found")
+    get_streamable_assetfile.short_description = "Best asset for streaming"
 
     def get_streaming_url(self, **kwargs):
         "Returns the best URL for this object."

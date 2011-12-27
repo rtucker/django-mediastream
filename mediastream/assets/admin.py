@@ -74,19 +74,50 @@ class TrackAdmin(admin.ModelAdmin):
 
     list_display    = ['__unicode__', 'artist', 'album',
                        'get_pretty_track_number', 'get_pretty_length',
-                       'get_assetfile_count',]
+                       'get_assetfile_count', 'total_plays', 'average_rating']
     list_filter     = ['artist__name', 'album__name', 'name']
     search_fields   = ['artist__name', 'album__name', 'name']
-    ordering        = ['artist']
+    ordering        = ['artist',]
+    readonly_fields = ['average_rating', 'get_streamable_assetfile',
+                       'artwork_preview', 'total_plays',]
+
+    fieldsets       = (
+        ('Track Data', {
+            'classes': ('maincol', 'float-left',),
+            'fields': ('name', 'artist', 'album', 'year',
+                        ('disc_number', 'track_number',),
+                        ('length', 'bpm',),
+                        ('total_plays', 'average_rating',),
+                      ),
+        }),
+        ('Media Summary', {
+            'classes': ('asidecol',),
+            'fields': ('artwork_preview', 'get_streamable_assetfile',),
+        }),
+    )
 
     class Media:
         js = ('%scollapse_filter.js' % (settings.STATIC_URL),)
+
+    def artwork_preview(self, obj):
+        candidate = obj.get_artwork_url()
+        if candidate:
+            return u'<img src="{0}" width="420px">'.format(candidate)
+        else:
+            return u''
+    artwork_preview.allow_tags=True
 
     def get_pretty_length(self, obj):
         if obj.length:
             return u"{0}:{1:02d}".format(obj.length / 60, obj.length % 60)
     get_pretty_length.short_description = 'length'
     get_pretty_length.admin_order_field = 'length'
+
+    def average_rating(self, obj):
+        return Rating.objects.get_average_rating(obj) or ''
+
+    def total_plays(self, obj):
+        return Play.objects.filter(asset=obj).count() or ''
 
 admin.site.register(Track, TrackAdmin)
 
@@ -123,5 +154,20 @@ class PlayAdmin(admin.ModelAdmin):
 admin.site.register(Play, PlayAdmin)
 
 class RatingAdmin(admin.ModelAdmin):
-    pass
+    list_display = ['play', 'modified', 'get_asset_name', 'user', 'get_rating_stars']
+    fields = ['modified', 'get_asset_name', 'user', 'play', 'rating']
+    readonly_fields = ['modified', 'get_asset_name', 'user', 'play', 'rating', 'get_rating_stars']
+
+    def get_asset_name(self, obj):
+        if hasattr(obj.asset, 'track'):
+            return u"{0} - {1} <i>({2})</i>".format(obj.asset.track.artist.name, obj.asset.track.name, obj.asset.track.album.name)
+        else:
+            return obj.asset.__unicode__()
+    get_asset_name.short_description = "Asset"
+    get_asset_name.allow_tags = True
+
+    def get_rating_stars(self, obj):
+        return u'* ' * obj.rating
+    get_rating_stars.short_description = "Rating"
+
 admin.site.register(Rating, RatingAdmin)
