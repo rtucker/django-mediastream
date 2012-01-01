@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block player_head %}
   <link type="text/css" href="{{ STATIC_URL }}jplayer.blue.monday.css" rel="stylesheet" />
+  <link type="text/css" href="{{ STATIC_URL }}mediastream.css" rel="stylesheet" />
   <script type="text/javascript" src="{{ STATIC_URL }}jquery.jplayer.min.js"></script>
   <meta name="viewport" content="width=320; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;" />
   {% block player_script %}
@@ -21,7 +22,7 @@
   {% endblock %}
 {% endblock %}
 {% block player_body %}
-  <p id="playeralerts"></p>
+  <p id="playeralerts" class="message"></p>
   <div id="jquery_jplayer_1" class="jp-jplayer"></div>
   <div id="jp_container_1" class="jp-audio">
     <div class="jp-type-single">

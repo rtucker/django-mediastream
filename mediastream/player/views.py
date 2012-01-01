@@ -1,11 +1,14 @@
 from django.contrib.auth.decorators import login_required
+from django.contrib.humanize.templatetags.humanize import naturalday
+from django.db import connection
 from django.db.models import Count
+from django.views.decorators.cache import never_cache
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render_to_response, redirect
 from django.template import RequestContext
 from django.utils import simplejson
 
-from mediastream.assets.models import Asset, AssetFile, Play, Rating, Track
+from mediastream.assets.models import Asset, AssetFile, Play, Rating, Track, Artist, Album
 from mediastream.queuer.models import AssetQueue, AssetQueueItem
 
 from datetime import datetime, timedelta
@@ -15,6 +18,7 @@ import urlparse
 RECENT_DAYS=7
 TRACKS_OUT=3
 
+@never_cache
 @login_required
 def music_player(request):
     "Returns a jPlayer music player for the user, with some stuff in the queue."
@@ -99,6 +103,16 @@ def player_event_handler(request):
             AssetQueueItem.objects.filter(pk__lt=current_track.pk, state='playing').update(state='skipped')
             current_track.state = 'playing'
             current_track.save()
+
+            last_play = current_track.asset.last_play
+
+            if last_play:
+                d['response'] = u"{0}, the last time you listened to {1} was {2}.".format(
+                    request.user.first_name or request.user.username,
+                    unicode(current_track.asset.track),
+                    naturalday(last_play.modified),
+                )
+
             play_pointer = Play.objects.create(
                 asset = current_track.asset,
                 context = Play.CONTEXT_QUEUE,
@@ -131,7 +145,7 @@ def player_event_handler(request):
 
         elif player_state == 'jPlayer_error':
             # oh no!
-            d['response'] += u"  Error {0} occurred: {1}".format(
+            d['response'] = u"  Error {0} occurred: {1}".format(
                         post.get('errorType', 'unknown'),
                         post.get('errorMsg', 'no msg'))
             current_track.state = 'fileerror'
@@ -170,7 +184,7 @@ def player_event_handler(request):
                 'free': request.user.has_perm('asset.can_download_asset', next_track.asset),
                 'poster': poster or '',
                 'averageRating': next_track.asset.average_rating or 0,
-                'lastPlayAt': last_play.modified if last_play else '',
+                'lastPlayAt': last_play.modified.isoformat() if last_play else '',
                 'lastPlayPk': last_play.pk if last_play else '',
             })
             next_track.state = 'offered'
@@ -183,7 +197,6 @@ def player_event_handler(request):
 
         except AssetQueueItem.DoesNotExist:
             # queue is empty!
-            d['response'] = u"I'm picking some random tracks for you, {0}.".format(request.user.first_name or request.user.username)
             randtrack = Track.objects.get_shuffle(offer_pointer)
             if not AssetQueueItem.objects.filter(
                 object_id=randtrack.pk,
@@ -193,18 +206,28 @@ def player_event_handler(request):
                     asset_object = randtrack,
                     queue = queue,
                 )
-                d['randtrack'] = {
-                    'iterations': randtrack._iterations,
-                    'grooves_len': randtrack._grooves_len,
-                    'qssample_len': randtrack._qssample_len,
-                    'source': randtrack._source,
-                }
+                d['randstats'] = randtrack._randstats
+
+    if request.session.get('first_refresh', False):
+        request.session['first_refresh'] = False
+        d['response'] = u"Hello, {0}.  I am django-mediastream.  This is {1}.  I know {2} tracks, {3} albums and {4} artists.  I have played {5} tracks and recorded {6} ratings.".format(
+            request.user.first_name or request.user.username,
+            unicode(queue),
+            Track.objects.count(),
+            Album.objects.count(),
+            Artist.objects.count(),
+            Play.objects.count(),
+            Rating.objects.count(),
+        )
 
     # God save the state
     request.session['active_queue'] = queue.pk
-    request.session['first_refresh'] = False
     request.session['offer_pointer'] = offer_pointer.pk
     request.session['play_pointer'] = play_pointer_pk
+
+    d['queries'] = len(connection.queries)
+    d['querytime'] = sum([float(f['time']) for f in connection.queries])
+
     return HttpResponse(simplejson.dumps(d), mimetype="application/json")
 
 @login_required
@@ -274,12 +297,14 @@ def collect_rating(request):
             rating_obj.save()
             rating_obj = Rating.objects.get(pk=rating_obj.pk)
             d['rating'] = rating_obj.rating
-            resp.append("I've recorded your {0}-star ({1}) review.".format(
-                 rating_obj.rating, rating_obj.get_rating_display()))
+            resp.append("I've logged your opinion ({0}) for {1}.".format(rating_obj.get_rating_display(), unicode(asset)))
         else:
+            resp.append("I've removed the {0}-star rating for {1}.".format(rating_obj.rating, unicode(asset)))
             rating_obj.delete()
             d['rating'] = 0
-            resp.append("Old rating removed.")
+
+        d['avg_rating'] = asset.average_rating or 0
+        d['total_ratings'] = asset.rating_set.count()
 
     # Handle groove, which is related to how well this track fits
     # into a stream of plays.
@@ -296,4 +321,6 @@ def collect_rating(request):
 
     d['response'] = ' '.join(resp)
 
+    d['queries'] = len(connection.queries)
+    d['querytime'] = sum([float(f['time']) for f in connection.queries])
     return HttpResponse(simplejson.dumps(d), mimetype="application/json")

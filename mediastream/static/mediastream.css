@@ -1,0 +1,10 @@
+p.message {
+    background-color: #CCCCCC;
+    border: 1px solid #009BE3;
+    color: #333333;
+    font-family: Verdana,Arial,sans-serif;
+    font-size: 0.8em;
+    line-height: 1.6;
+    text-align: center;
+    width: 420px;
+}

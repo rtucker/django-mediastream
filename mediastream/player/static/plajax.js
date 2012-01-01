@@ -54,7 +54,12 @@ var handle_groove = function(event){
             dataType: 'json',
             success: function(reply){
                 // server sends: response
-                $("#playeralerts").text(reply.response);
+                if(reply.response){
+                    $("#playeralerts").text(reply.response);
+                    $("#playeralerts").slideDown(200);
+                    $("#playeralerts").delay(20000);
+                    $("#playeralerts").fadeOut(600);
+                }
             }
         });
     }
@@ -76,7 +81,13 @@ var handle_rating = function(event){
         dataType: 'json',
         success: function(reply){
             // server sends: response, rating
-            $("#playeralerts").text(reply.response);
+            if(reply.response){
+                $("#playeralerts").text(reply.response);
+                $("#playeralerts").slideDown(200);
+                $("#playeralerts").delay(20000);
+                $("#playeralerts").fadeOut(600);
+            }
+            $('a.jp-playlist-current > span.jp-rating').html("average rating: " + reply.avg_rating + " (ratings: " + reply.total_ratings + ")").show();
             $(star_span).html(reply.rating);
             $(star_span).stars();
         }
@@ -117,7 +128,12 @@ var bug_server = function(data){
             $.each(reply.tracks, function(index, value) {
                 jplaylist.add(value);
             });
-            $("#playeralerts").text(reply.response);
+            if(reply.response){
+                $("#playeralerts").text(reply.response);
+                $("#playeralerts").slideDown(200);
+                $("#playeralerts").delay(20000);
+                $("#playeralerts").fadeOut(600);
+            }
             if(reply.artistName && reply.trackName) {
                 $('title').text(reply.trackName + " by " + reply.artistName + " | mediastream");
             } else {

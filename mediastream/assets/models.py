@@ -283,7 +283,8 @@ class TrackManager(models.Manager):
 
         return results
 
-    def get_shuffle_sample(self):
+    def _get_shuffle_sample(self):
+        "Returns a sampling of a QuerySet."
         qssample = cache.get('get_shuffle__sample')
         if not qssample:
             qs = self.get_query_set().filter(skip_random=False)
@@ -298,50 +299,86 @@ class TrackManager(models.Manager):
                 Q(anno_rate__gt=3,  anno_last__lt=datetime.now() - playtime(4)) |
                 Q(anno_rate__gt=4,  anno_last__lt=datetime.now() - playtime(5))
             )
-            qssample = random.sample(qs, 500)
+            qssample = random.sample(qs, min(500, len(qs)))
             cache.set('get_shuffle__sample', qssample, 1800)
         return qssample
 
     def get_shuffle(self, previous=None, debug=False):
-        "Returns a shuffle-mode track, with some smarts."
+        """Returns a shuffle-mode track, with some smarts.
+
+        We set relative probabilities for the following possibilities:
+            - Grooves: if they exist, go for them most of the time.
+            - Ratings: highest-rated tracks first, much of the time
+            - Unrated/unplayed tracks: sometimes, go completely random
+        """
+        randstats = {}
         if type(previous) is int:
             previous = self.get(pk=previous)
 
-        # Interrogate previous track for good grooves.
+        # Interrogate previous track for good and bad grooves.
         if previous:
+            randstats['previous'] = previous.pk
             grooves = cache.get('get_shuffle__grooves__%i' % previous.pk)
             if not grooves:
-                grooves = list(self.get_query_set().filter(skip_random=False, play__in_groove=True, play__previous_play__asset=previous))
+                grooves = list(self.get_query_set().filter(
+                    skip_random=False,
+                    play__in_groove=True,
+                    play__previous_play__asset=previous,
+                ))
                 cache.set('get_shuffle__grooves__%i' % previous.pk, grooves, 3600)
+            antigrooves = cache.get('get_shuffle__antigrooves__%i' % previous.pk)
+            if not antigrooves:
+                antigrooves = list(self.get_query_set().filter(
+                    skip_random=False,
+                    play__in_groove=False,
+                    play__previous_play__asset=previous,
+                ))
+                cache.set('get_shuffle__antigrooves__%i' % previous.pk, antigrooves, 3600)
         else:
+            antigrooves = []
             grooves = []
 
-        qssample = self.get_shuffle_sample()
+        qssample = self._get_shuffle_sample()
+        qssample.sort(key=lambda k: k.anno_rate)
+
+        # Mix this bad boy up.
+        val = random.randint(0, 99)
+        if val < 25:
+            # 25% of the time, be completely random.
+            random.shuffle(qssample)
+            randstats['mode'] = 'shuffle'
+        elif val < 80:
+            # 55% of the time, if there's grooves, put 'em first
+            qssample.extend(grooves)
+            randstats['mode'] = 'grooves'
+        else:
+            randstats['mode'] = 'rating'
+
         result = None
         iterations = 0
         while not result:
             # Randomly pick a sequence.
             iterations += 1
-            val = random.randint(0, 4)
-            if val < 3 and grooves:
-                random.shuffle(grooves)
-                result = grooves.pop()
-                result._source = 'grooves'
-            elif qssample:
-                random.shuffle(qssample)
+            randstats = {
+                'iterations': iterations,
+                'antigrooves_len': len(antigrooves),
+                'grooves_len': len(grooves),
+                'qssample_len': len(qssample),
+            }
+
+            if qssample:
                 result = qssample.pop()
-                result._source = 'qssample'
+                if (cache.get('get_shuffle__offered__%i' % result.pk) or
+                    result.recently_played or
+                    result in antigrooves
+                   ): result=None
             else:
                 cache.delete('get_shuffle__sample')
                 qssample = self.get_shuffle_sample()
+                randstats['mode'] = 'failsafe'
 
-            if result:
-                result._grooves_len = len(grooves)
-                result._qssample_len = len(qssample)
-                if result.recently_played: result = None
-
-        result._previous = previous
-        result._iterations = iterations
+        cache.set('get_shuffle__offered__%i' % result.pk, True, 3600)
+        result._randstats = randstats
         return result
 
 class Track(Asset):
@@ -473,7 +510,7 @@ class Track(Asset):
 
 class PlayManager(models.Manager):
     def get_last_play(self, asset):
-        qs = self.filter(asset=asset).order_by('-modified')
+        qs = self.filter(asset=asset, played=True).order_by('-modified')
         try:
             return qs[0]
         except IndexError:
