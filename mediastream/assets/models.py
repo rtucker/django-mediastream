@@ -1,13 +1,10 @@
-from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.files import File
 from django.core.files.base import ContentFile
 from django.core.urlresolvers import reverse
 from django.db import models
-from django.db.models import Avg, Max, Min, Count, Q
-
-from mutagen.m4a import M4ACover
-from mutagen.mp3 import MPEGInfo
+from django.db.models import Avg, Max, Q
 
 from mediastream.assets import MIMETYPE_CHOICES, _get_upload_path
 from mediastream.assets import mt as mimetypes
@@ -15,8 +12,18 @@ from mediastream.utilities.mediainspector import Inspector
 
 from datetime import datetime, timedelta
 import os
+import random
 from tempfile import NamedTemporaryFile
 import zipfile
+
+# Approximate window for repeating Tracks
+RECENT_DAYS = 14
+
+def playtime(rating=None):
+    minimum = RECENT_DAYS
+    if rating:
+        minimum *= rating**-1
+    return timedelta(days=minimum)
 
 class Thing(models.Model):
     "Abstract base class for things with names."
@@ -44,6 +51,14 @@ class Asset(Thing):
     def get_assetfile_count(self):
         return self.assetfile_set.count()
     get_assetfile_count.short_description = 'files'
+
+    def get_average_rating(self):
+        return Rating.objects.get_average_rating(self)
+    average_rating = property(get_average_rating)
+
+    def get_last_play(self):
+        return Play.objects.get_last_play(self)
+    last_play = property(get_last_play)
 
 class AssetFile(Thing):
     "Describes an underlying file for an Asset."
@@ -268,14 +283,66 @@ class TrackManager(models.Manager):
 
         return results
 
-    def get_random(self):
-        "Returns a random track."
-        # Hat tip: http://stackoverflow.com/a/6405601/205400
-        from random import randint
-        qs = self.exclude(skip_random=True)
-        last = qs.count() - 1
-        index = randint(0, last)
-        return qs[index]
+    def get_shuffle_sample(self):
+        qssample = cache.get('get_shuffle__sample')
+        if not qssample:
+            qs = self.get_query_set().filter(skip_random=False)
+            qs = qs.annotate(anno_rate=Avg('rating__rating'))
+            qs = qs.annotate(anno_last=Max('play__modified'))
+            qs = qs.filter(
+                Q(anno_last=None) |
+                Q(anno_rate=None,   anno_last__lt=datetime.now() - playtime(None)) |
+                Q(anno_rate__lte=1, anno_last__lt=datetime.now() - playtime(1)) |
+                Q(anno_rate__gt=1,  anno_last__lt=datetime.now() - playtime(2)) |
+                Q(anno_rate__gt=2,  anno_last__lt=datetime.now() - playtime(3)) |
+                Q(anno_rate__gt=3,  anno_last__lt=datetime.now() - playtime(4)) |
+                Q(anno_rate__gt=4,  anno_last__lt=datetime.now() - playtime(5))
+            )
+            qssample = random.sample(qs, 500)
+            cache.set('get_shuffle__sample', qssample, 1800)
+        return qssample
+
+    def get_shuffle(self, previous=None, debug=False):
+        "Returns a shuffle-mode track, with some smarts."
+        if type(previous) is int:
+            previous = self.get(pk=previous)
+
+        # Interrogate previous track for good grooves.
+        if previous:
+            grooves = cache.get('get_shuffle__grooves__%i' % previous.pk)
+            if not grooves:
+                grooves = list(self.get_query_set().filter(skip_random=False, play__in_groove=True, play__previous_play__asset=previous))
+                cache.set('get_shuffle__grooves__%i' % previous.pk, grooves, 3600)
+        else:
+            grooves = []
+
+        qssample = self.get_shuffle_sample()
+        result = None
+        iterations = 0
+        while not result:
+            # Randomly pick a sequence.
+            iterations += 1
+            val = random.randint(0, 4)
+            if val < 3 and grooves:
+                random.shuffle(grooves)
+                result = grooves.pop()
+                result._source = 'grooves'
+            elif qssample:
+                random.shuffle(qssample)
+                result = qssample.pop()
+                result._source = 'qssample'
+            else:
+                cache.delete('get_shuffle__sample')
+                qssample = self.get_shuffle_sample()
+
+            if result:
+                result._grooves_len = len(grooves)
+                result._qssample_len = len(qssample)
+                if result.recently_played: result = None
+
+        result._previous = previous
+        result._iterations = iterations
+        return result
 
 class Track(Asset):
     """
@@ -344,6 +411,13 @@ class Track(Asset):
         if ext in ['spx', 'ogg']: ext = 'oga'
         return ext
 
+    def get_recently_played(self):
+        "Based on Rating and Play, returns True if track played recently"
+        if not self.last_play:
+            return False
+        return self.last_play.modified > (datetime.now() + playtime(self.average_rating))
+    recently_played = property(get_recently_played)
+
     def _inspect_files(self, qs=None, update_artist=False, update_album=False):
         if not qs:
             qs = self.assetfile_set.all()
@@ -397,6 +471,14 @@ class Track(Asset):
                 apic_obj.contents.save(apic_obj_fn, ContentFile(apic['data']))
                 apic_obj.save()
 
+class PlayManager(models.Manager):
+    def get_last_play(self, asset):
+        qs = self.filter(asset=asset).order_by('-modified')
+        try:
+            return qs[0]
+        except IndexError:
+            return None
+
 class Play(models.Model):
     "Logs when an asset has been played."
     CONTEXT_STANDALONE = 0
@@ -425,6 +507,8 @@ class Play(models.Model):
     in_groove       = models.NullBooleanField(blank=True, null=True,
                             default=None,
                             verbose_name="Is this set grooving?")
+
+    objects = PlayManager()
 
     def __unicode__(self):
         return u"Play {0} ({1}, {2}, {3})".format(

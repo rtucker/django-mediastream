@@ -83,9 +83,7 @@ def player_event_handler(request):
         current_name = current_track.asset.track.name
         current_artist = current_track.asset.track.artist
 
-        d = {'response':    ('Hello, {0}!').format(
-                                request.user.first_name or request.user.username,
-                                ),
+        d = {
              'artistName':  current_track.asset.track.artist.name,
              'artistPk':    current_track.asset.track.artist.pk,
              'trackName':   current_track.asset.track.name,
@@ -147,7 +145,6 @@ def player_event_handler(request):
 
     # Top off the user's playlist
     d['tracks'] = []
-    shortage = False
     while (len(d['tracks']) + remaining) < TRACKS_OUT:
         try:
             if not offer_pointer:
@@ -162,6 +159,7 @@ def player_event_handler(request):
             key = next_track.asset.track.get_streaming_exten()
             url = next_track.asset.track.get_streaming_url()
             poster = next_track.asset.track.get_artwork_url()
+            last_play = next_track.asset.last_play
             d['tracks'].append({
                 key: url,
                 'pk': next_track.pk,
@@ -171,7 +169,9 @@ def player_event_handler(request):
                 'title': unicode(next_track.asset.track),
                 'free': request.user.has_perm('asset.can_download_asset', next_track.asset),
                 'poster': poster or '',
-                'averageRating': Rating.objects.get_average_rating(next_track.asset) or 0,
+                'averageRating': next_track.asset.average_rating or 0,
+                'lastPlayAt': last_play.modified if last_play else '',
+                'lastPlayPk': last_play.pk if last_play else '',
             })
             next_track.state = 'offered'
             next_track.save()
@@ -183,20 +183,22 @@ def player_event_handler(request):
 
         except AssetQueueItem.DoesNotExist:
             # queue is empty!
-            shortage = True
-            randtrack = None
-            while not randtrack:
-                randtrack = Track.objects.get_random()
-                if Play.objects.filter(modified__gt=datetime.now()-timedelta(days=RECENT_DAYS), asset=randtrack).exists():
-                    randtrack = None
-                else:
-                    aqi = AssetQueueItem.objects.create(
-                        queue = queue,
-                        asset_object = randtrack,
-                    )
-
-    if shortage:
-        d['response'] = u"I'm picking random tracks for you, {0}.".format(request.user.first_name or request.user.username)
+            d['response'] = u"I'm picking some random tracks for you, {0}.".format(request.user.first_name or request.user.username)
+            randtrack = Track.objects.get_shuffle(offer_pointer)
+            if not AssetQueueItem.objects.filter(
+                object_id=randtrack.pk,
+                state__in=['offered', 'playing'],
+            ).exists():
+                aqi = AssetQueueItem.objects.create(
+                    asset_object = randtrack,
+                    queue = queue,
+                )
+                d['randtrack'] = {
+                    'iterations': randtrack._iterations,
+                    'grooves_len': randtrack._grooves_len,
+                    'qssample_len': randtrack._qssample_len,
+                    'source': randtrack._source,
+                }
 
     # God save the state
     request.session['active_queue'] = queue.pk
