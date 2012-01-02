@@ -128,6 +128,7 @@ INSTALLED_APPS = (
     'mediastream.assets',
     'mediastream.player',
     'mediastream.queuer',
+    'mediastream.tags',
     'mediastream.utilities',
 )
 

@@ -1,7 +1,12 @@
 from django.conf import settings
 from django.contrib import admin
+from django.contrib.contenttypes.generic import GenericTabularInline
 from django.db.models import Avg, Max, Min, Count
-from mediastream.assets.models import *
+from assets.models import *
+from tags.models import TaggedItem
+
+class TaggedItemInline(GenericTabularInline):
+    model = TaggedItem
 
 class AlbumAdmin(admin.ModelAdmin):
     def queryset(self, request):
@@ -10,9 +15,10 @@ class AlbumAdmin(admin.ModelAdmin):
                     artist_count=Count('track__artist', distinct=True),
                     track_count=Count('track', distinct=True),)
 
+    inlines         = [TaggedItemInline,]
     list_display    = ['__unicode__', 'get_artist_name', 'is_compilation',
                        'discs', 'get_artist_count', 'get_track_count',]
-    list_filter     = ['is_compilation', 'discs', 'name',]
+    list_filter     = ['is_compilation', 'discs', 'name', 'created',]
     search_fields   = ['name', 'track__name',]
     readonly_fields = ['get_track_admin_links',]
 
@@ -41,9 +47,10 @@ class ArtistAdmin(admin.ModelAdmin):
                     album_count=Count('track__album', distinct=True),
                     track_count=Count('track', distinct=True),)
 
+    inlines         = [TaggedItemInline,]
     list_display    = ['__unicode__', 'is_prince',
                        'get_album_count', 'get_track_count',]
-    list_filter     = ['is_prince', 'name',]
+    list_filter     = ['is_prince', 'name', 'created',]
     search_fields   = ['name', 'track__name',]
     readonly_fields = ['get_track_admin_links',]
 
@@ -78,16 +85,18 @@ class AssetFileInline(admin.StackedInline):
     )
 
 class TrackAdmin(admin.ModelAdmin):
-    inlines         = [AssetFileInline,]
+    inlines         = [TaggedItemInline, AssetFileInline,]
 
     list_display    = ['__unicode__', 'artist', 'album',
                        'get_pretty_track_number', 'get_pretty_length',
                        'get_assetfile_count', 'total_plays', 'average_rating']
-    list_filter     = ['artist__name', 'album__name', 'name']
+    list_filter     = ['artist__name', 'album__name', 'name', 'created',]
     search_fields   = ['artist__name', 'album__name', 'name']
     ordering        = ['artist',]
     readonly_fields = ['average_rating', 'get_streamable_assetfile',
                        'artwork_preview', 'total_plays',]
+
+    date_hierarchy  = 'created'
 
     fieldsets       = (
         ('Media Summary', {
