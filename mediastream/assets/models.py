@@ -299,8 +299,18 @@ class TrackManager(models.Manager):
                 Q(anno_rate__gt=3,  anno_last__lt=datetime.now() - playtime(4)) |
                 Q(anno_rate__gt=4,  anno_last__lt=datetime.now() - playtime(5))
             )
-            qssample = random.sample(qs, min(500, len(qs)))
-            cache.set('get_shuffle__sample', qssample, 1800)
+
+            # Filter the sample somewhat to avoid over-representation
+            seen_albums = {}
+            seen_artists = {}
+            qssample = []
+            for t in qs.order_by('?').iterator():
+                seen_albums[t.album_id] = seen_albums.get(t.album_id, 0) + 1
+                seen_artists[t.artist_id] = seen_artists.get(t.artist_id, 0) + 1
+                if seen_albums[t.album_id] < 5 and seen_artists[t.artist_id] < 5:
+                    qssample.append(t)
+                if len(qssample) > 499: break
+            cache.set('get_shuffle__sample', qssample, 3600)
         return qssample
 
     def get_shuffle(self, previous=None, debug=False):
@@ -325,7 +335,7 @@ class TrackManager(models.Manager):
                     play__in_groove=True,
                     play__previous_play__asset=previous,
                 ))
-                cache.set('get_shuffle__grooves__%i' % previous.pk, grooves, 3600)
+                cache.set('get_shuffle__grooves__%i' % previous.pk, grooves, 7200)
             antigrooves = cache.get('get_shuffle__antigrooves__%i' % previous.pk)
             if not antigrooves:
                 antigrooves = list(self.get_query_set().filter(
@@ -333,7 +343,7 @@ class TrackManager(models.Manager):
                     play__in_groove=False,
                     play__previous_play__asset=previous,
                 ))
-                cache.set('get_shuffle__antigrooves__%i' % previous.pk, antigrooves, 3600)
+                cache.set('get_shuffle__antigrooves__%i' % previous.pk, antigrooves, 7200)
         else:
             antigrooves = []
             grooves = []
@@ -377,7 +387,7 @@ class TrackManager(models.Manager):
                 qssample = self.get_shuffle_sample()
                 randstats['mode'] = 'failsafe'
 
-        cache.set('get_shuffle__offered__%i' % result.pk, True, 3600)
+        cache.set('get_shuffle__offered__%i' % result.pk, True, 7200)
         result._randstats = randstats
         return result
 
