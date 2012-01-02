@@ -8,3 +8,7 @@ p.message {
     text-align: center;
     width: 420px;
 }
+
+span.jp-rating {
+    float: right;
+}

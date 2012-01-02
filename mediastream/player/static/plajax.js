@@ -107,8 +107,7 @@ var reticulate_splines = function(){
         $('div.starbox > span.stars').stars();
         $('div.starbox > span.stars').click(handle_rating);
         $('div.starbox').append('<span class="groove"></span>');
-        $('span.groove').append('This set: <input class="groovebox" value="nope" type="checkbox">not doing it for me</input>');
-        $('span.groove').append('<input class="groovebox" value="awyeah" type="checkbox">grooving fiercely</input>');
+        $('span.groove').append('<p>This set: <input class="groovebox" value="nope" type="checkbox">not doing it for me</input><input class="groovebox" value="awyeah" type="checkbox">grooving fiercely</input></p>');
         $('input.groovebox').click(handle_groove);
     }
 }
