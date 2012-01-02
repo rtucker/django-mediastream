@@ -109,7 +109,7 @@ def player_event_handler(request):
             if last_play:
                 d['response'] = u"{0}, the last time you listened to {1} was {2}.".format(
                     request.user.first_name or request.user.username,
-                    unicode(current_track.asset.track),
+                    current_track.asset.name,
                     naturalday(last_play.modified),
                 )
 
@@ -178,9 +178,9 @@ def player_event_handler(request):
                 key: url,
                 'pk': next_track.pk,
                 'assetPk': next_track.asset.pk,
-                'album': unicode(next_track.asset.track.album),
-                'artist': unicode(next_track.asset.track.artist),
-                'title': unicode(next_track.asset.track),
+                'album': next_track.asset.track.album.name,
+                'artist': next_track.asset.track.artist.name,
+                'title': next_track.asset.track.name,
                 'free': request.user.has_perm('asset.can_download_asset', next_track.asset),
                 'poster': poster or '',
                 'averageRating': next_track.asset.average_rating or 0,
@@ -297,9 +297,9 @@ def collect_rating(request):
             rating_obj.save()
             rating_obj = Rating.objects.get(pk=rating_obj.pk)
             d['rating'] = rating_obj.rating
-            resp.append("I've logged your opinion ({0}) for {1}.".format(rating_obj.get_rating_display(), unicode(asset)))
+            resp.append(u"I've logged your opinion ({0}) for {1}.".format(rating_obj.get_rating_display(), asset.name))
         else:
-            resp.append("I've removed the {0}-star rating for {1}.".format(rating_obj.rating, unicode(asset)))
+            resp.append(u"I've removed the {0}-star rating for {1}.".format(rating_obj.rating, asset.name))
             rating_obj.delete()
             d['rating'] = 0
 
