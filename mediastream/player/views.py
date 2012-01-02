@@ -1,18 +1,22 @@
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.humanize.templatetags.humanize import naturalday
 from django.db import connection
 from django.db.models import Count
-from django.views.decorators.cache import never_cache
-from django.http import HttpResponse
+from django.views.decorators.cache import never_cache, cache_page
+from django.http import HttpResponse, Http404
 from django.shortcuts import get_object_or_404, render_to_response, redirect
 from django.template import RequestContext
 from django.utils import simplejson
 
-from mediastream.assets.models import Asset, AssetFile, Play, Rating, Track, Artist, Album
+from mediastream.assets.models import Asset, AssetFile, Play, Rating, Track, Artist, Album, Discogs
 from mediastream.queuer.models import AssetQueue, AssetQueueItem
 
 from datetime import datetime, timedelta
-import urllib
+import discogs_client as discogs
+from gitrevision.utils import gitrevision
+import pycurl
+from StringIO import StringIO
 import urlparse
 
 RECENT_DAYS=7
@@ -170,6 +174,18 @@ def player_event_handler(request):
                 continue
             if not request.user.has_perm('asset.can_stream_asset', next_track.asset):
                 continue
+
+            # Try to build out discogs data slowly but surely
+            try:
+                artist = next_track.asset.track.artist
+                #album  = next_track.asset.track.album
+                artist.discogs = Discogs.objects.get_for_object(artist)
+                artist.save()
+                #album.discogs = Discogs.objects.get_for_object(album)
+                #album.save()
+            except Discogs.DoesNotExist:
+                pass
+
             key = next_track.asset.track.get_streaming_exten()
             url = next_track.asset.track.get_streaming_url()
             poster = next_track.asset.track.get_artwork_url()
@@ -225,8 +241,9 @@ def player_event_handler(request):
     request.session['offer_pointer'] = offer_pointer.pk
     request.session['play_pointer'] = play_pointer_pk
 
-    d['queries'] = len(connection.queries)
-    d['querytime'] = sum([float(f['time']) for f in connection.queries])
+    d['_queries'] = len(connection.queries)
+    d['_querytime'] = sum([float(f['time']) for f in connection.queries])
+    d['_revision'] = gitrevision()[0:10]
 
     return HttpResponse(simplejson.dumps(d), mimetype="application/json")
 
@@ -321,6 +338,54 @@ def collect_rating(request):
 
     d['response'] = ' '.join(resp)
 
-    d['queries'] = len(connection.queries)
-    d['querytime'] = sum([float(f['time']) for f in connection.queries])
+    d['_queries'] = len(connection.queries)
+    d['_querytime'] = sum([float(f['time']) for f in connection.queries])
+    d['_revision'] = gitrevision()[0:10]
+
     return HttpResponse(simplejson.dumps(d), mimetype="application/json")
+
+@login_required
+@cache_page(604800)
+def discogs_image_view(request, image):
+    """Proxies an image view from Discogs.
+
+    Expects image to be the path of a resource_url, i.e.
+
+        In [69]: d.data['images'][0]['resource_url']
+        Out[69]: u'http://api.discogs.com/image/A-67830-1080022087.jpg'
+
+        In [70]: urlparse(d.data['images'][0]['resource_url'])
+        Out[70]: ParseResult(scheme=u'http', netloc=u'api.discogs.com', path=u'/image/A-67830-1080022087.jpg', params='', query='', fragment='')
+
+        In [71]: urlparse(d.data['images'][0]['resource_url']).path
+        Out[71]: u'/image/A-67830-1080022087.jpg'
+    """
+
+    if not image.startswith('/image'):
+        raise Http404
+
+    urlbase = discogs.api_uri
+    b = StringIO()
+    h = StringIO()
+    c = pycurl.Curl()
+    c.setopt(pycurl.URL, str(urlbase + image))
+    c.setopt(pycurl.USERAGENT, settings.HTTP_USER_AGENT)
+    c.setopt(pycurl.FOLLOWLOCATION, 1)
+    c.setopt(pycurl.HEADERFUNCTION, h.write)
+    c.setopt(pycurl.WRITEFUNCTION, b.write)
+    c.perform()
+    b.seek(0)
+    h.seek(0)
+
+    if c.getinfo(pycurl.HTTP_CODE) > 399:
+        raise Http404
+
+    content_type = None
+    for line in h:
+        if line.startswith('Content-Type: '):
+            hdr, content_type = line.strip().split(': ', 1)
+            break
+
+    resp = HttpResponse(content=b, content_type=content_type)
+    resp['X-Retrieved'] = datetime.now().isoformat()
+    return resp

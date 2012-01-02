@@ -1,29 +1,147 @@
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.files import File
 from django.core.files.base import ContentFile
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.db.models import Avg, Max, Q
+from django.utils import simplejson
 
 from mediastream.assets import MIMETYPE_CHOICES, _get_upload_path
 from mediastream.assets import mt as mimetypes
 from mediastream.utilities.mediainspector import Inspector
 
 from datetime import datetime, timedelta
+import discogs_client as discogs
+from gitrevision.utils import gitrevision
 import os
 import random
 from tempfile import NamedTemporaryFile
+from urlparse import urlparse
 import zipfile
 
 # Approximate window for repeating Tracks
 RECENT_DAYS = 14
+
+discogs.user_agent = settings.HTTP_USER_AGENT
 
 def playtime(rating=None):
     minimum = RECENT_DAYS
     if rating:
         minimum *= rating**-1
     return timedelta(days=minimum)
+
+class DiscogsManager(models.Manager):
+    def get_for_object(self, obj):
+        "Attempts to find a Discogs record for an album or artist."
+        if type(obj) is Artist:
+            obj_type    = Discogs.ARTIST
+            obj_id      = obj.name
+            obj_class   = discogs.Artist
+        elif type(obj) is Album:
+            obj_type    = Discogs.RELEASE
+            obj_id      = None
+            obj_class   = discogs.Release
+
+            for result in sorted(discogs.Search(obj.name).results()):
+                if type(result) not in [discogs.Release, discogs.MasterRelease]:
+                    continue
+
+                # Check track list concurrence
+                tracks_matched = 0
+                my_tracks = obj.track_set.values_list('name', flat=True)
+                for discogs_track in result.tracklist:
+                    if discogs_track['title'] in my_tracks:
+                        tracks_matched += 1
+                if tracks_matched > (len(my_tracks)/2):
+                    # We probably have a winner here
+                    obj_id = result._id
+                    if type(result) is discogs.MasterRelease:
+                        obj_type = Discogs.MASTERRELEASE
+                        obj_class = discogs.MasterRelease
+                    break
+
+        # Bail out on errors
+        if not obj_id:
+            raise Discogs.DoesNotExist("Could not find a Discogs object for {0}".format(obj.name))
+
+        # Do we already have one of these?
+        try:
+            return self.get(object_type=obj_type, object_id=obj_id)
+        except Discogs.DoesNotExist:
+            pass
+        
+        # Try to pull some data from it
+        try:
+            data = obj_class(obj_id).data
+        except discogs.DiscogsAPIError, e:
+            raise Discogs.DoesNotExist("Could not retrieve Discogs object for {0} using {1}({2}): {3}".format(obj.name, repr(obj_class), repr(obj_id), e))
+
+        # Save stuff!
+        return self.create(object_type=obj_type,
+                           object_id=obj_id,
+                           data_cache=simplejson.dumps(data),
+                           data_cache_dttm=datetime.now())
+
+class Discogs(models.Model):
+    "Holds a relationship with Discogs."
+    ARTIST = 1
+    RELEASE = 2
+    MASTERRELEASE = 3
+    LABEL = 4
+    SEARCH = 5
+    OBJECT_TYPE_CHOICES = (
+        (ARTIST, 'Artist'),
+        (RELEASE, 'Release'),
+        (MASTERRELEASE, 'MasterRelease'),
+        (LABEL, 'Label'),
+        (SEARCH, 'Search'),
+    )
+
+    object_type = models.PositiveSmallIntegerField(
+        choices=OBJECT_TYPE_CHOICES,
+    )
+    object_id = models.CharField(max_length=255)
+    data_cache = models.TextField(blank=True, null=True)
+    data_cache_dttm = models.DateTimeField(blank=True, null=True, verbose_name='Data cache timestamp')
+
+    objects = DiscogsManager()
+
+    class Meta:
+        unique_together = (('object_type', 'object_id',),)
+        verbose_name = 'Discogs mapping'
+
+    def __unicode__(self):
+        return u"{0} {1}".format(
+            self.get_object_type_display(),
+            self.object_id,
+        )
+
+    @property
+    def discogs_object(self):
+        return getattr(discogs, self.get_object_type_display())(self.object_id)
+
+    @property
+    def data(self):
+        if self.object_type == self.SEARCH:
+            return None
+        if (not self.data_cache_dttm) or (self.data_cache_dttm < datetime.now() - timedelta(days=30)):
+            # nuke existing cache
+            self.data_cache = None
+            self.data_cache_dttm = None
+            self.save()
+            # read in new stuff from discogs
+            self.data_cache = simplejson.dumps(self.discogs_object.data)
+            self.data_cache_dttm = datetime.now()
+            self.save()
+        return simplejson.loads(self.data_cache)
+
+    def get_asset(self):
+        qs = list(self.artist_set.all()) + list(self.album_set.all())
+        return qs[0] if qs else None
+    get_asset.short_description = 'Asset'
 
 class Thing(models.Model):
     "Abstract base class for things with names."
@@ -134,6 +252,7 @@ class Artist(Thing):
                     help_text=("If true, Unicode representation will be "
                                "O(+> between 1993 and 2000."),
                     verbose_name="Occasionally known as Prince")
+    discogs     = models.ForeignKey(Discogs, null=True, blank=True)
 
     def __unicode__(self):
         return u"O(+>" if self.is_prince else self.name
@@ -174,6 +293,7 @@ class Album(Thing):
                         help_text="Contains the work of distinct artists.")
     discs           = models.IntegerField(default=1,
                         help_text="Quantity of discs in the set.")
+    discogs         = models.ForeignKey(Discogs, null=True, blank=True)
 
     def get_track_admin_links(self):
         out = u'<ul>'
@@ -439,6 +559,18 @@ class Track(Asset):
         qs = self.assetfile_set.filter(mimetype__startswith='image/').order_by('?')
         if qs.exists():
             return qs[0].contents.url
+        pickings = []
+        for discogs in [self.album.discogs, self.artist.discogs]:
+            if discogs and 'images' in discogs.data:
+                for img in discogs.data['images']:
+                    localpath = reverse('discogs_image',
+                        args=(urlparse(img['resource_url']).path,),)
+                    if img['type'] == 'primary':
+                        return localpath
+                    else:
+                        pickings.append(localpath)
+        if len(pickings) > 0:
+            return random.choice(pickings)
         return None
 
     def get_streamable_assetfile(self, **kwargs):

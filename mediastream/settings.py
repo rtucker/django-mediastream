@@ -99,6 +99,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    #'gitrevision.middleware.GitRevision',
     'django.middleware.cache.FetchFromCacheMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
 )
@@ -122,6 +123,7 @@ INSTALLED_APPS = (
     'django.contrib.admindocs',
     # third-party stuff
     'debug_toolbar',
+    'gitrevision',
     'gunicorn',
     'south',
     # our applications
@@ -179,6 +181,21 @@ AWS_STATIC_IS_GZIPPED=True
 AWS_STATIC_HEADERS = {
     'Cache-Control': 'public, max-age=604800',
 } 
+
+# User agent
+from django import VERSION as djversion
+from git import Repo, InvalidGitRepositoryError
+from platform import python_version
+try:
+    gitrev = Repo().head.commit.hexsha
+except InvalidGitRepositoryError:
+    gitrev = 'unknown'
+HTTP_USER_AGENT = 'django-mediastream/{0} Django/{1} Python/{2} +{3}'.format(
+    gitrev[0:10],
+    '.'.join([str(f) for f in djversion]),
+    python_version(),
+    'https://github.com/rtucker/django-mediastream',
+)
 
 # Local settings
 try:

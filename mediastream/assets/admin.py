@@ -1,6 +1,9 @@
+# -*- coding: utf-8 -*-
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.contenttypes.generic import GenericTabularInline
+from django.contrib.humanize.templatetags.humanize import naturalday
+from django.core.urlresolvers import reverse
 from django.db.models import Avg, Max, Min, Count
 from assets.models import *
 from tags.models import TaggedItem
@@ -20,7 +23,30 @@ class AlbumAdmin(admin.ModelAdmin):
                        'discs', 'get_artist_count', 'get_track_count',]
     list_filter     = ['is_compilation', 'discs', 'name', 'created',]
     search_fields   = ['name', 'track__name',]
-    readonly_fields = ['get_track_admin_links',]
+    readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_artists', 'get_discogs_credits', 'get_discogs_notes',]
+
+    fieldsets = (
+        ('', {
+            'fields': (
+                ('name', 'is_compilation',),
+                'discs',
+            ),
+        }),
+        ('Discogs', {
+            'fields': (
+                'get_discogs_resource_url',
+                'get_discogs_data_quality',
+                'get_discogs_artists',
+                'get_discogs_credits',
+                'get_discogs_notes',
+            ),
+        }),
+        ('Track listing', {
+            'fields': (
+                'get_track_admin_links',
+            ),
+        }),
+    )
 
     def get_artist_name(self, obj):
         artists = obj.track_set.values_list('artist__name', flat=True).annotate(Count('id')).order_by('-id__count')
@@ -38,6 +64,37 @@ class AlbumAdmin(admin.ModelAdmin):
     get_track_count.admin_order_field = 'track_count'
     get_track_count.short_description = 'Tracks'
 
+    def get_discogs_notes(self, obj):
+        if obj.discogs:
+            return obj.discogs.data['notes']
+    get_discogs_notes.short_description='Notes'
+
+    def get_discogs_artists(self, obj):
+        if obj.discogs:
+            return ', '.join([f['name'] for f in obj.discogs.data['artists']])
+    get_discogs_artists.short_description='Artists'
+
+    def get_discogs_credits(self, obj):
+        if obj.discogs:
+            return u'<br/>'.join([u'{role}{tl}{tracks} – <a href="{resource_url}" target="_blank">{name}</a>'.format(tl=', tracks ' if f['tracks'] else '', **f) for f in obj.discogs.data['extraartists']])
+    get_discogs_credits.short_description='Credits'
+    get_discogs_credits.allow_tags = True
+
+    def get_discogs_data_quality(self, obj):
+        if obj.discogs:
+            return '{0} (retrieved {1})'.format(
+                obj.discogs.data['data_quality'],
+                naturalday(obj.discogs.data_cache_dttm),
+            )
+    get_discogs_data_quality.short_description='Data quality'
+
+    def get_discogs_resource_url(self, obj):
+        if obj.discogs:
+            return '<a href="{resource_url}" target="_blank">Discogs ID {id}</a>'.format(**obj.discogs.data)
+    get_discogs_resource_url.allow_tags=True
+    get_discogs_resource_url.short_description='Resource'
+
+
 admin.site.register(Album, AlbumAdmin)
 
 class ArtistAdmin(admin.ModelAdmin):
@@ -52,7 +109,28 @@ class ArtistAdmin(admin.ModelAdmin):
                        'get_album_count', 'get_track_count',]
     list_filter     = ['is_prince', 'name', 'created',]
     search_fields   = ['name', 'track__name',]
-    readonly_fields = ['get_track_admin_links',]
+    readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_members', 'get_discogs_profile',]
+
+    fieldsets = (
+        ('', {
+            'fields': (
+                ('name', 'is_prince',),
+            ),
+        }),
+        ('Discogs', {
+            'fields': (
+                'get_discogs_resource_url',
+                'get_discogs_data_quality',
+                'get_discogs_members',
+                'get_discogs_profile',
+            ),
+        }),
+        ('Track listing', {
+            'fields': (
+                'get_track_admin_links',
+            ),
+        }),
+    )
 
     def get_album_count(self, obj): return obj.album_count
     get_album_count.admin_order_field = 'album_count'
@@ -61,6 +139,30 @@ class ArtistAdmin(admin.ModelAdmin):
     def get_track_count(self, obj): return obj.track_count
     get_track_count.admin_order_field = 'track_count'
     get_track_count.short_description = 'Tracks'
+
+    def get_discogs_profile(self, obj):
+        if obj.discogs:
+            return obj.discogs.data['profile']
+    get_discogs_profile.short_description='Profile'
+
+    def get_discogs_members(self, obj):
+        if obj.discogs:
+            return ', '.join(obj.discogs.data['members'])
+    get_discogs_members.short_description='Members'
+
+    def get_discogs_data_quality(self, obj):
+        if obj.discogs:
+            return '{0} (retrieved {1})'.format(
+                obj.discogs.data['data_quality'],
+                naturalday(obj.discogs.data_cache_dttm),
+            )
+    get_discogs_data_quality.short_description='Data quality'
+
+    def get_discogs_resource_url(self, obj):
+        if obj.discogs:
+            return '<a href="{resource_url}" target="_blank">Discogs ID {id}</a>'.format(**obj.discogs.data)
+    get_discogs_resource_url.allow_tags=True
+    get_discogs_resource_url.short_description='Resource'
 
 admin.site.register(Artist, ArtistAdmin)
 
@@ -188,3 +290,22 @@ class RatingAdmin(admin.ModelAdmin):
     get_rating_stars.short_description = "Rating"
 
 admin.site.register(Rating, RatingAdmin)
+
+class DiscogsAdmin(admin.ModelAdmin):
+    list_display = ['__unicode__', 'get_asset', 'data_cache_dttm']
+    date_hierarchy  = 'data_cache_dttm'
+
+    readonly_fields = ['get_asset_link', 'data_cache', 'data_cache_dttm',]
+
+    def get_asset_link(self, obj):
+        asset = obj.get_asset()
+        url = reverse('admin:{app_label}_{module_name}_change'.format(**asset._meta.__dict__), args=(asset.pk,))
+        return u'{0} <a href="{1}">{2}</a>'.format(
+            asset._meta.verbose_name,
+            url,
+            asset.name,
+        ) 
+    get_asset_link.short_description='Asset'
+    get_asset_link.allow_tags=True
+
+admin.site.register(Discogs, DiscogsAdmin)
