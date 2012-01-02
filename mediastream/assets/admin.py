@@ -10,15 +10,23 @@ class AlbumAdmin(admin.ModelAdmin):
                     artist_count=Count('track__artist', distinct=True),
                     track_count=Count('track', distinct=True),)
 
-    list_display    = ['__unicode__', 'is_compilation', 'discs',
-                       'get_artist_count', 'get_track_count',]
+    list_display    = ['__unicode__', 'get_artist_name', 'is_compilation',
+                       'discs', 'get_artist_count', 'get_track_count',]
     list_filter     = ['is_compilation', 'discs', 'name',]
     search_fields   = ['name', 'track__name',]
     readonly_fields = ['get_track_admin_links',]
 
+    def get_artist_name(self, obj):
+        artists = obj.track_set.values_list('artist__name', flat=True).annotate(Count('id')).order_by('-id__count')
+        if len(artists) > 3:
+            artists = list(artists[0:3]) + ['...']
+        return ', '.join(artists)
+    get_artist_name.admin_order_field = 'track__artist'
+    get_artist_name.short_description = 'Artists'
+
     def get_artist_count(self, obj): return obj.artist_count
     get_artist_count.admin_order_field = 'artist_count'
-    get_artist_count.short_description = 'Artists'
+    get_artist_count.short_description = 'Artist count'
 
     def get_track_count(self, obj): return obj.track_count
     get_track_count.admin_order_field = 'track_count'
