@@ -45,7 +45,11 @@ class DiscogsManager(models.Manager):
             obj_id      = None
             obj_class   = discogs.Release
 
-            for result in sorted(discogs.Search(obj.name).results()):
+            try:
+                results = sorted(discogs.Search(obj.name).results())
+            except discogs.DiscogsAPIError, e:
+                results = []
+            for result in results:
                 if type(result) not in [discogs.Release, discogs.MasterRelease]:
                     continue
 

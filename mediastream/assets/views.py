@@ -1,19 +1,24 @@
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.contenttypes.models import ContentType
 from django.core.files import File
-from django.http import HttpResponseRedirect
+from django.core.urlresolvers import reverse
+from django.http import HttpResponseRedirect, Http404
 from django.shortcuts import render_to_response
 from django.template import RequestContext
+from django.views.decorators.cache import never_cache
 
 from mediastream.assets.forms import UploadFileForm, ImportFileForm
 from mediastream.assets.models import Album, Artist, Track, AssetFile
 from mediastream.utilities.mediainspector import Inspector
+from mediastream.utilities.recursion import long_substr
 
 import os
 from tempfile import NamedTemporaryFile
 import zipfile
 
 @login_required
+@never_cache
 def upload_file(request):
     # TODO: Much of this can be eliminated, thanks to Track.objects.create_from_file
     if request.method == 'POST':
@@ -119,3 +124,84 @@ def upload_file(request):
         upform = UploadFileForm()
         imform = ImportFileForm()
     return render_to_response('assets/upload.html', {'upform': upform, 'imform': imform}, context_instance=RequestContext(request))
+
+@login_required
+@never_cache
+def merge_assets_view(request, **kwargs):
+    ct = kwargs['ct']
+    ids = kwargs['ids'].split(',')
+    content_type = ContentType.objects.get(pk=ct)
+
+    if content_type.model_class() is Album:
+        child = 'track_set'
+        attribute = 'album'
+    elif content_type.model_class() is Artist:
+        child = 'track_set'
+        attribute = 'artist'
+    elif content_type.model_class() is Track:
+        child = 'assetfile_set'
+        attribute = 'asset'
+    else:
+        raise Http404
+
+    context = {
+        'content_type': content_type,
+    }
+
+    if request.method == 'POST':
+        asset_order_raw = request.POST.get('asset_order')
+        if asset_order_raw:
+            # 'asset[]=123&asset[]=456'
+            asset_order_raw = asset_order_raw.split('&')
+            # ['asset[]=123', 'asset[]=456']
+            asset_order = [int(f.split('=',1)[1]) for f in asset_order_raw] # [123, 456]
+        else:
+            asset_order = [int(f) for f in ids]
+
+        assets = [content_type.get_object_for_this_type(pk=pk) for pk in asset_order]
+        common_name = request.POST.get('common_name').strip()
+        if common_name:
+            messages.info(request, 'Preparing to merge %i assets into "%s"' % (len(assets), common_name))
+
+            target = assets[0]
+
+            # Renumber discs
+            disc_counter = 0
+            update_tracks = {}
+            for asset in assets:
+                # How many distinct discs do we have here?
+                discs = list(asset.track_set.values_list('disc_number', flat=True).order_by().distinct())
+                discs.sort()
+                for disc in discs:
+                    disc_counter += 1
+                    update_tracks[disc_counter] = list(asset.track_set.filter(disc_number=disc))
+
+            messages.info(request, 'New album will have %i discs' % disc_counter)
+            target.discs = disc_counter
+            target.name = common_name
+            target.save()
+
+            for disc_number, tracks in update_tracks.items():
+                for track in tracks:
+                    track.album = target
+                    track.disc_number = disc_number
+                    track.save()
+
+            messages.info(request, "Merge process complete.  Please delete old albums when you have a chance.")
+
+            return HttpResponseRedirect(reverse('admin:assets_album_change', args=(target.pk,)))
+
+        else:
+            messages.error(request, "No name specified.")
+
+    else:
+        assets = [content_type.get_object_for_this_type(pk=pk) for pk in ids]
+        common_name = long_substr([a.name for a in assets])
+        messages.info(request, "Drag the list around until they are in the proper order.")
+        messages.info(request, "All albums will be merged into the first album, with the disc number set in this order.  The first album will be renamed to the value in the box at the bottom.")
+
+    context['assets'] = [(a, getattr(a, child).all().order_by('disc_number', 'track_number')) for a in assets]
+    context['common_name'] = common_name
+
+    return render_to_response('assets/merge_assets.html', context, context_instance=RequestContext(request))
+

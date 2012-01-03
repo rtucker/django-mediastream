@@ -2,11 +2,54 @@
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.contenttypes.generic import GenericTabularInline
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.humanize.templatetags.humanize import naturalday
 from django.core.urlresolvers import reverse
 from django.db.models import Avg, Max, Min, Count
+from django.http import HttpResponseRedirect
+from django.template.defaultfilters import slugify
+from django.utils import simplejson
 from assets.models import *
-from tags.models import TaggedItem
+from tags.models import Tag, TaggedItem
+from utilities.recursion import html_tree
+
+def link_to_discogs(modeladmin, request, queryset):
+    rows_updated = 0
+    rows_failed = 0
+    tags_applied = 0
+    for obj in queryset:
+        try:
+            d = Discogs.objects.get_for_object(obj)
+            obj.discogs = d
+            obj.save()
+            rows_updated += 1
+            for key in ['genres', 'styles']:
+                for thing in d.data.get(key, []):
+                    tag, c = Tag.objects.get_or_create(
+                        label=slugify(thing),
+                        parent=Tag.objects.get(label=key, parent=None),
+                    )
+                    TaggedItem.objects.get_or_create(
+                        tag=tag,
+                        content_type=ContentType.objects.get_for_model(obj),
+                        object_id=obj.id,
+                    )
+        except Discogs.DoesNotExist:
+            rows_failed += 1
+    out = []
+    if rows_updated > 0:
+        out.append("Successfully updated %i row%s" % (
+            rows_updated, '' if rows_updated == 1 else 's',))
+    if rows_failed > 0:
+        out.append("Failed to update %i row%s" % (
+            rows_failed, '' if rows_failed == 1 else 's',))
+    modeladmin.message_user(request, ', and '.join(out).capitalize())
+link_to_discogs.short_description = 'Create Discogs records'
+
+def merge_assets(modeladmin, request, queryset):
+    selected = request.POST.getlist(admin.ACTION_CHECKBOX_NAME)
+    ct = ContentType.objects.get_for_model(queryset.model)
+    return HttpResponseRedirect(reverse('asset-merge', kwargs={'ct': ct.pk, 'ids': ','.join(selected)}))
 
 class TaggedItemInline(GenericTabularInline):
     model = TaggedItem
@@ -18,9 +61,10 @@ class AlbumAdmin(admin.ModelAdmin):
                     artist_count=Count('track__artist', distinct=True),
                     track_count=Count('track', distinct=True),)
 
+    actions         = [link_to_discogs, merge_assets]
     inlines         = [TaggedItemInline,]
     list_display    = ['__unicode__', 'get_artist_name', 'is_compilation',
-                       'discs', 'get_artist_count', 'get_track_count',]
+                       'discs', 'get_artist_count', 'get_track_count', 'discogs']
     list_filter     = ['is_compilation', 'discs', 'name', 'created',]
     search_fields   = ['name', 'track__name',]
     readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_artists', 'get_discogs_credits', 'get_discogs_notes',]
@@ -66,24 +110,24 @@ class AlbumAdmin(admin.ModelAdmin):
 
     def get_discogs_notes(self, obj):
         if obj.discogs:
-            return obj.discogs.data['notes']
+            return obj.discogs.data.get('notes', None)
     get_discogs_notes.short_description='Notes'
 
     def get_discogs_artists(self, obj):
         if obj.discogs:
-            return ', '.join([f['name'] for f in obj.discogs.data['artists']])
+            return ', '.join([f['name'] for f in obj.discogs.data.get('artists', [])])
     get_discogs_artists.short_description='Artists'
 
     def get_discogs_credits(self, obj):
         if obj.discogs:
-            return u'<br/>'.join([u'{role}{tl}{tracks} – <a href="{resource_url}" target="_blank">{name}</a>'.format(tl=', tracks ' if f['tracks'] else '', **f) for f in obj.discogs.data['extraartists']])
+            return u'<br/>'.join([u'{role}{tl}{tracks} – <a href="{resource_url}" target="_blank">{name}</a>'.format(tl=', tracks ' if f['tracks'] else '', **f) for f in obj.discogs.data.get('extraartists', [])])
     get_discogs_credits.short_description='Credits'
     get_discogs_credits.allow_tags = True
 
     def get_discogs_data_quality(self, obj):
         if obj.discogs:
             return '{0} (retrieved {1})'.format(
-                obj.discogs.data['data_quality'],
+                obj.discogs.data.get('data_quality', 'unknown'),
                 naturalday(obj.discogs.data_cache_dttm),
             )
     get_discogs_data_quality.short_description='Data quality'
@@ -104,9 +148,11 @@ class ArtistAdmin(admin.ModelAdmin):
                     album_count=Count('track__album', distinct=True),
                     track_count=Count('track', distinct=True),)
 
+    actions         = [link_to_discogs]
+
     inlines         = [TaggedItemInline,]
     list_display    = ['__unicode__', 'is_prince',
-                       'get_album_count', 'get_track_count',]
+                       'get_album_count', 'get_track_count', 'discogs']
     list_filter     = ['is_prince', 'name', 'created',]
     search_fields   = ['name', 'track__name',]
     readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_members', 'get_discogs_profile',]
@@ -142,18 +188,18 @@ class ArtistAdmin(admin.ModelAdmin):
 
     def get_discogs_profile(self, obj):
         if obj.discogs:
-            return obj.discogs.data['profile']
+            return obj.discogs.data.get('profile', None)
     get_discogs_profile.short_description='Profile'
 
     def get_discogs_members(self, obj):
         if obj.discogs:
-            return ', '.join(obj.discogs.data['members'])
+            return ', '.join(obj.discogs.data.get('members', []))
     get_discogs_members.short_description='Members'
 
     def get_discogs_data_quality(self, obj):
         if obj.discogs:
             return '{0} (retrieved {1})'.format(
-                obj.discogs.data['data_quality'],
+                obj.discogs.data.get('data_quality', 'unknown'),
                 naturalday(obj.discogs.data_cache_dttm),
             )
     get_discogs_data_quality.short_description='Data quality'
@@ -295,7 +341,11 @@ class DiscogsAdmin(admin.ModelAdmin):
     list_display = ['__unicode__', 'get_asset', 'data_cache_dttm']
     date_hierarchy  = 'data_cache_dttm'
 
-    readonly_fields = ['get_asset_link', 'data_cache', 'data_cache_dttm',]
+    search_fields = ['object_id', 'artist__name', 'album__name']
+
+    readonly_fields = ['get_asset_link', 'get_pretty_data_cache', 'data_cache_dttm',]
+
+    fields = ['object_type', 'object_id', 'get_asset_link', 'data_cache_dttm', 'get_pretty_data_cache']
 
     def get_asset_link(self, obj):
         asset = obj.get_asset()
@@ -307,5 +357,12 @@ class DiscogsAdmin(admin.ModelAdmin):
         ) 
     get_asset_link.short_description='Asset'
     get_asset_link.allow_tags=True
+
+    def get_pretty_data_cache(self, obj):
+        data = simplejson.loads(obj.data_cache)
+        return u'<div class="aligned">{0}</div>'.format(html_tree(data))
+    get_pretty_data_cache.short_description='Data cache'
+    get_pretty_data_cache.allow_tags=True
+
 
 admin.site.register(Discogs, DiscogsAdmin)

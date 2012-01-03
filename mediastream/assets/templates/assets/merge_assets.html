@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Merge Assets{% endblock %}
+{% block player_head %}
+<link rel="stylesheet" type="text/css" href="{{ STATIC_URL }}jquery-ui/css/ui-lightness/jquery-ui-1.8.16.custom.css">
+<style type="text/css">
+    p.small {
+        font-size: 0.6em;
+        padding-left: 2em;
+    }
+
+    fieldset {
+        margin: 20px;
+        padding: 10px;
+        width: 80%;
+    }
+
+    div.form-row {
+        border: 1px solid #cccccc;
+        padding: 10px;
+        margin: 0 3px 3px 3px;
+    }
+
+    .form-row label {
+        display: block;
+        padding: 3px 10px;
+        float: left;
+        width: 12em;
+    }
+
+    .form-row input {
+        width: 20em;
+    }
+
+    #sortable {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+    }
+    #sortable li {
+        margin: 0 3px 3px 3px;
+        padding: 0.4em;
+        padding-left: 1.5em;
+        font-size: 1.4em;
+    }
+    #sortable li span {
+        position: absolute;
+        margin-left: -1.3em;
+    }
+</style>
+<script type="text/javascript" src="{{ STATIC_URL }}jquery-ui/js/jquery-ui-1.8.16.custom.min.js"></script>
+
+<script type="text/javascript">
+    $(function() {
+        $("#sortable").sortable({
+            placeholder: 'ui-state-highlight',
+            stop: function(i) {
+                $('input[name=asset_order]').val($("#sortable").sortable("serialize"));
+            }
+        });
+        $("#sortable").disableSelection();
+    });
+</script>
+{% endblock %}
+{% block body %}
+<div id="merge_dialogue">
+  <form id="merge_form" method="post">
+    <fieldset>
+        <h1 class="ui-widget-header">Merge assets</h1>
+        {% if messages %}
+        {% for message in messages %}
+        <div class="ui-state-highlight ui-corner-all" style="margin-top:20px;padding:0 .7em;margin-bottom:20px;">
+            <p><span class="ui-icon ui-icon-{{ message.tags }}" style="float:left;margin-right:0.3em;"></span>{{ message }}</li>
+        </div>
+        {% endfor %}
+        {% endif %}
+        <input type="hidden" name="asset_order" value="">
+        {% csrf_token %}
+        <ul id="sortable">
+        {% for asset, children in assets %}
+            <li id="asset_{{ asset.pk }}" class="ui-state-default">
+                <span class="ui-icon ui-icon-arrowthick-2-n-s"></span>
+                <p>"{{ asset }}" ({{ content_type }} pk {{ asset.pk }})</p>
+                <p class="small"><strong>{{ children|length }} track{{ children|length|pluralize }}</strong>{% for track in children %} | {{ track.get_pretty_track_number }} - {{ track }}{% endfor %}</p>
+            </li>
+        {% endfor %}
+        </ul>
+        <div class="form-row">
+            <label>New name</label>
+            <input type="text" name="common_name" value="{{ common_name }}"><br/>
+        </div>
+        <div class="form-row">
+            <label>Merge {{ content_type }}s</label>
+            <input type="submit" value="Submit" />
+        </div>
+    </fieldset>
+  </form>
+</div>
+{% endblock %}
