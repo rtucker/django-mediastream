@@ -66,7 +66,7 @@ class AlbumAdmin(admin.ModelAdmin):
     list_display    = ['__unicode__', 'get_artist_name', 'is_compilation',
                        'discs', 'get_artist_count', 'get_track_count', 'discogs']
     list_filter     = ['is_compilation', 'discs', 'name', 'created',]
-    search_fields   = ['name', 'track__name',]
+    search_fields   = ['name',]
     readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_artists', 'get_discogs_credits', 'get_discogs_notes',]
 
     fieldsets = (
@@ -154,7 +154,7 @@ class ArtistAdmin(admin.ModelAdmin):
     list_display    = ['__unicode__', 'is_prince',
                        'get_album_count', 'get_track_count', 'discogs']
     list_filter     = ['is_prince', 'name', 'created',]
-    search_fields   = ['name', 'track__name',]
+    search_fields   = ['name',]
     readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_members', 'get_discogs_profile',]
 
     fieldsets = (
@@ -239,7 +239,7 @@ class TrackAdmin(admin.ModelAdmin):
                        'get_pretty_track_number', 'get_pretty_length',
                        'get_assetfile_count', 'total_plays', 'average_rating']
     list_filter     = ['artist__name', 'album__name', 'name', 'created',]
-    search_fields   = ['artist__name', 'album__name', 'name']
+    search_fields   = ['name',]
     ordering        = ['artist',]
     readonly_fields = ['average_rating', 'get_streamable_assetfile',
                        'artwork_preview', 'total_plays',]
