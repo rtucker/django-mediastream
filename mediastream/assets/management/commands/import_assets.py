@@ -10,6 +10,6 @@ class Command(BaseCommand):
             newtracks = Track.objects.create_from_file(newfile)
             for newtrack in newtracks:
                 try:
-                    self.stdout.write("Successfully imported from %s: pk %i, %s / %s / %s\n" % (newfile, newtrack.pk, newtrack.artist.name, newtrack.album.name, newtrack.name))
-                except UnicodeEncodeError:
-                    self.stdout.write("Successfully imported a track pk %i\n" % (newtrack.pk))
+                    self.stdout.write(u"Successfully imported from %s: pk %i, %s / %s / %s\n" % (newfile, newtrack.pk, newtrack.artist.name, newtrack.album.name, newtrack.name))
+                except UnicodeDecodeError:
+                    self.stdout.write(u"Successfully imported a track pk %i\n" % (newtrack.pk))
