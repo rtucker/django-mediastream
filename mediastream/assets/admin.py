@@ -55,19 +55,15 @@ class TaggedItemInline(GenericTabularInline):
     model = TaggedItem
 
 class AlbumAdmin(admin.ModelAdmin):
-    def queryset(self, request):
-        qs = super(AlbumAdmin, self).queryset(request)
-        return qs.annotate(
-                    artist_count=Count('track__artist', distinct=True),
-                    track_count=Count('track', distinct=True),)
-
     actions         = [link_to_discogs, merge_assets]
     inlines         = [TaggedItemInline,]
     list_display    = ['__unicode__', 'get_artist_name', 'is_compilation',
-                       'discs', 'get_artist_count', 'get_track_count', 'discogs']
+                       'discs', 'get_artist_count', 'get_track_count', 'get_play_count', 'discogs']
     list_filter     = ['is_compilation', 'discs', 'name', 'created',]
     search_fields   = ['name',]
-    readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_artists', 'get_discogs_credits', 'get_discogs_notes',]
+    readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_artists', 'get_discogs_credits', 'get_discogs_notes', 'get_play_count',]
+
+    filter_horizontal = ['extra_artists',]
 
     fieldsets = (
         ('', {
@@ -85,9 +81,9 @@ class AlbumAdmin(admin.ModelAdmin):
                 'get_discogs_notes',
             ),
         }),
-        ('Track listing', {
+        ('Tracks and Performers', {
             'fields': (
-                'get_track_admin_links',
+                ('get_track_admin_links', 'extra_artists',),
             ),
         }),
     )
@@ -103,6 +99,11 @@ class AlbumAdmin(admin.ModelAdmin):
     def get_artist_count(self, obj): return obj.artist_count
     get_artist_count.admin_order_field = 'artist_count'
     get_artist_count.short_description = 'Artist count'
+
+    def get_play_count(self, obj):
+        return obj.play_count
+    get_play_count.short_description = 'Play count'
+    get_play_count.admin_order_field = 'play_count'
 
     def get_track_count(self, obj): return obj.track_count
     get_track_count.admin_order_field = 'track_count'
@@ -138,24 +139,17 @@ class AlbumAdmin(admin.ModelAdmin):
     get_discogs_resource_url.allow_tags=True
     get_discogs_resource_url.short_description='Resource'
 
-
 admin.site.register(Album, AlbumAdmin)
 
 class ArtistAdmin(admin.ModelAdmin):
-    def queryset(self, request):
-        qs = super(ArtistAdmin, self).queryset(request)
-        return qs.annotate(
-                    album_count=Count('track__album', distinct=True),
-                    track_count=Count('track', distinct=True),)
-
     actions         = [link_to_discogs]
 
     inlines         = [TaggedItemInline,]
     list_display    = ['__unicode__', 'is_prince',
-                       'get_album_count', 'get_track_count', 'discogs']
+                       'get_album_count', 'get_track_count', 'get_play_count', 'discogs']
     list_filter     = ['is_prince', 'name', 'created',]
     search_fields   = ['name',]
-    readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_members', 'get_discogs_profile',]
+    readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_members', 'get_discogs_profile', 'get_play_count',]
 
     fieldsets = (
         ('', {
@@ -181,6 +175,11 @@ class ArtistAdmin(admin.ModelAdmin):
     def get_album_count(self, obj): return obj.album_count
     get_album_count.admin_order_field = 'album_count'
     get_album_count.short_description = 'Albums'
+
+    def get_play_count(self, obj):
+        return obj.play_count
+    get_play_count.short_description = 'Play count'
+    get_play_count.admin_order_field = 'play_count'
 
     def get_track_count(self, obj): return obj.track_count
     get_track_count.admin_order_field = 'track_count'
@@ -237,14 +236,15 @@ class TrackAdmin(admin.ModelAdmin):
 
     list_display    = ['__unicode__', 'artist', 'album',
                        'get_pretty_track_number', 'get_pretty_length',
-                       'get_assetfile_count', 'total_plays', 'average_rating']
+                       'get_assetfile_count', 'get_play_count', 'get_average_rating']
     list_filter     = ['artist__name', 'album__name', 'name', 'created',]
     search_fields   = ['name',]
     ordering        = ['artist',]
-    readonly_fields = ['average_rating', 'get_streamable_assetfile',
-                       'artwork_preview', 'total_plays',]
+    readonly_fields = ['get_average_rating', 'get_streamable_assetfile',
+                       'get_play_count', 'artwork_preview',
+                       'get_extra_artist_list',]
 
-    date_hierarchy  = 'created'
+    filter_horizontal = ['extra_artists',]
 
     fieldsets       = (
         ('Media Summary', {
@@ -253,12 +253,21 @@ class TrackAdmin(admin.ModelAdmin):
         }),
         ('Track Data', {
             'classes': (),
-            'fields': ('name', 'artist', 'album', 'year',
+            'fields': ( 'name', 
+                        'artist',
+                        'get_extra_artist_list',
+                        ('album', 'year',),
                         ('disc_number', 'track_number',),
                         ('length', 'bpm',),
-                        ('total_plays', 'average_rating',),
+                        ('get_play_count', 'get_average_rating',),
                         'skip_random',
                       ),
+        }),
+        ('Extra Artists', {
+            'classes': ('collapse',),
+            'fields': (
+                'extra_artists',
+            ),
         }),
     )
 
@@ -272,17 +281,36 @@ class TrackAdmin(admin.ModelAdmin):
         return u''
     artwork_preview.allow_tags=True
 
+    def get_extra_artist_list(self, obj):
+        return u', '.join([
+                    u'<a href="{0}">{1}</a>'.format(
+                        reverse('admin:{app_label}_{module_name}_change'.format(**f._meta.__dict__), args=(f.pk,)),
+                        f.name,
+                    ) for f in obj.extra_artists.all()
+        ])
+    get_extra_artist_list.allow_tags = True
+    get_extra_artist_list.short_description = 'Extra artists'
+
     def get_pretty_length(self, obj):
         if obj.length:
             return u"{0}:{1:02d}".format(obj.length / 60, obj.length % 60)
     get_pretty_length.short_description = 'length'
     get_pretty_length.admin_order_field = 'length'
 
-    def average_rating(self, obj):
-        return Rating.objects.get_average_rating(obj) or ''
+    def get_play_count(self, obj):
+        return obj.play_count
+    get_play_count.short_description = 'Play count'
+    get_play_count.admin_order_field = 'play_count'
 
-    def total_plays(self, obj):
-        return Play.objects.filter(asset=obj).count() or ''
+    def get_assetfile_count(self, obj):
+        return obj.assetfile_count
+    get_assetfile_count.short_description = 'Files'
+    get_assetfile_count.admin_order_field = 'assetfile_count'
+
+    def get_average_rating(self, obj):
+        return obj.average_rating
+    get_average_rating.short_description = 'Average rating'
+    get_average_rating.admin_order_field = 'average_rating'
 
 admin.site.register(Track, TrackAdmin)
 

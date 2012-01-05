@@ -6,7 +6,7 @@ from django.core.files import File
 from django.core.files.base import ContentFile
 from django.core.urlresolvers import reverse
 from django.db import models
-from django.db.models import Avg, Max, Q
+from django.db.models import Avg, Max, Count, Q
 from django.utils import simplejson
 
 from mediastream.assets import MIMETYPE_CHOICES, _get_upload_path
@@ -162,6 +162,15 @@ class Thing(models.Model):
     def __unicode__(self):
         return self.name
 
+class AssetManager(models.Manager):
+    def get_query_set(self):
+        qs = super(AssetManager, self).get_query_set()
+        return qs.annotate(
+                    assetfile_count=Count('assetfile', distinct=True),
+                    play_count=Count('play', distinct=True),
+                    average_rating=Avg('rating__rating'),
+                    last_play=Max('play__modified'),)
+
 class Asset(Thing):
     "Inherited class that owns the actual files."
     class Meta:
@@ -170,17 +179,7 @@ class Asset(Thing):
                        ("can_stream_asset", "Can stream asset"),
                       )
 
-    def get_assetfile_count(self):
-        return self.assetfile_set.count()
-    get_assetfile_count.short_description = 'files'
-
-    def get_average_rating(self):
-        return Rating.objects.get_average_rating(self)
-    average_rating = property(get_average_rating)
-
-    def get_last_play(self):
-        return Play.objects.get_last_play(self)
-    last_play = property(get_last_play)
+    objects = AssetManager()
 
 class AssetFile(Thing):
     "Describes an underlying file for an Asset."
@@ -250,6 +249,14 @@ class AssetDescriptor(models.Model):
         return u"Stream {bitstream} ({mimetype})".format(**self.__dict__)
 
 # Music-specific concepts.
+class ArtistManager(models.Manager):
+    def get_query_set(self):
+        qs = super(ArtistManager, self).get_query_set()
+        return qs.annotate(
+                    album_count=Count('track__album', distinct=True),
+                    track_count=Count('track', distinct=True),
+                    play_count=Count('track__play', distinct=True),)
+
 class Artist(Thing):
     "A performing artist."
     is_prince   = models.BooleanField(default=False,
@@ -258,30 +265,75 @@ class Artist(Thing):
                     verbose_name="Occasionally known as Prince")
     discogs     = models.ForeignKey(Discogs, null=True, blank=True)
 
+    objects     = ArtistManager()
+
     def __unicode__(self):
         return u"O(+>" if self.is_prince else self.name
 
     def get_track_admin_links(self):
-        out = u'<ul>'
-        for album in self.track_set.all().values('album').order_by('album').distinct():
-            album = Album.objects.get(pk=album['album'])
-            out += u'<li><a href="{url}">{album}</a>:</li>'.format(url=reverse('admin:assets_album_change', args=(album.id,)), album=album.name,)
-            out += u'<ul>'
-            for track in self.track_set.filter(album=album).order_by('disc_number', 'track_number'):
-                out += (u'<li><a href="{url}">Track {tn}</a>: '
-                        u'{artist} / {name}</li>'
-                       ).format(
-                        url=reverse('admin:assets_track_change',
-                            args=(track.id,)),
-                        tn=track.get_pretty_track_number(),
-                        artist=track.artist.name,
-                        name=track.name,
-                       )
-            out += u'</ul>'
-        out += u'</ul>'
-        return out
+        def __album_print(album, tracks=None):
+            out = u'<h4><a href="{url}">{album}</a>{wholealbum}</h4>'.format(
+                    url=reverse('admin:assets_album_change', args=(album.id,)),
+                    album=album.name,
+                    wholealbum='' if tracks else ' (entire album)',
+                )
+            if tracks:
+                for track in tracks:
+                    out += u'<li>{0}</li>'.format(__track_print(track))
+            return out
+
+        def __track_print(track, album=False):
+            return (
+                u'<a href="{url}">Track {tn}</a>: {artist} / {name}'.format(
+                    url=reverse('admin:assets_track_change',
+                        args=(track.id,)),
+                    tn=track.get_pretty_track_number(),
+                    artist=track.artist.name,
+                    name=track.name,
+                ))
+
+        out = [u'<ul>']
+
+        direct = self.track_set.values('album').order_by('album').distinct()
+        if len(direct) > 0:
+            out.append(u'<h3>As primary artist</h3>')
+            for album in direct:
+                album = Album.objects.get(pk=album['album'])
+                out.append(__album_print(album, tracks=self.track_set.filter(album=album).order_by('disc_number', 'track_number')))
+
+        extra_albums = self.album_credits.values('pk').order_by('name').distinct()
+        extra_tracks = self.track_credits.values('pk', 'album__name', 'album__pk').order_by('album__name', 'track_number').distinct()
+        seen_albums = []
+
+        if len(extra_tracks) > 0 or len(extra_albums) > 0:
+            out.append(u'<h3>As credited artist</h3>')
+
+            for extra_track in extra_tracks:
+                if extra_track['album__pk'] in seen_albums:
+                    continue
+                album = Album.objects.get(pk=extra_track['album__pk'])
+                seen_albums.append(album.pk)
+                out.append(__album_print(album, tracks=self.track_credits.filter(album=album).order_by('disc_number', 'track_number')))
+
+            for extra_album in extra_albums:
+                if extra_album['pk'] in seen_albums:
+                    continue
+                album = Album.objects.get(pk=extra_album['pk'])
+                out.append(__album_print(album, tracks=self.track_credits.filter(album=album).order_by('disc_number', 'track_number')))
+
+        out.append(u'</ul>')
+
+        return ''.join(out)
     get_track_admin_links.allow_tags = True
     get_track_admin_links.short_description = 'Tracks'
+
+class AlbumManager(models.Manager):
+    def get_query_set(self):
+        qs = super(AlbumManager, self).get_query_set()
+        return qs.annotate(
+                    artist_count=Count('track__artist', distinct=True),
+                    track_count=Count('track', distinct=True),
+                    play_count=Count('track__play', distinct=True),)
 
 class Album(Thing):
     """
@@ -289,15 +341,18 @@ class Album(Thing):
 
     This corresponds approximately to the unit of sale for a group of
     tracks.  It may consist of multiple discs, or none at all.
-
-    Notice that there is no Artist here.  This can happen with
-    compilations, etc.
     """
+
     is_compilation  = models.BooleanField(default=False,
                         help_text="Contains the work of distinct artists.")
     discs           = models.IntegerField(default=1,
                         help_text="Quantity of discs in the set.")
     discogs         = models.ForeignKey(Discogs, null=True, blank=True)
+    extra_artists   = models.ManyToManyField(Artist, null=True, blank=True,
+                        related_name="album_credits",
+                        help_text="Additional credited artists for this album, such as remixer, producer, etc.")
+
+    objects = AlbumManager()
 
     def get_track_admin_links(self):
         out = u'<ul>'
@@ -320,6 +375,15 @@ class Album(Thing):
     get_track_admin_links.short_description = 'Tracks'
 
 class TrackManager(models.Manager):
+    def get_query_set(self):
+        qs = super(TrackManager, self).get_query_set()
+        return qs.annotate(
+                    assetfile_count=Count('assetfile', distinct=True),
+                    play_count=Count('play', distinct=True),
+                    average_rating=Avg('rating__rating'),
+                    last_play=Max('play__modified'),)
+
+
     def create_from_file(self, stash):
         if not isinstance(stash, file):
             filename = stash
@@ -537,6 +601,11 @@ class Track(Asset):
     skip_random = models.BooleanField(default=False,
                     help_text="Don't play during random mode")
 
+    extra_artists   = models.ManyToManyField(Artist, null=True, blank=True,
+                        related_name="track_credits",
+                        help_text="Additional credited artists for this track, such as producer, special guest, etc.")
+
+
     class Meta:
         order_with_respect_to   = 'album'
         ordering                = ['disc_number', 'track_number']
@@ -598,7 +667,7 @@ class Track(Asset):
         "Based on Rating and Play, returns True if track played recently"
         if not self.last_play:
             return False
-        return self.last_play.modified > (datetime.now() + playtime(self.average_rating))
+        return self.last_play > (datetime.now() + playtime(self.average_rating))
     recently_played = property(get_recently_played)
 
     def _inspect_files(self, qs=None, update_artist=False, update_album=False):

@@ -114,7 +114,7 @@ def player_event_handler(request):
                 d['response'] = u"{0}, the last time you listened to {1} was {2}.".format(
                     request.user.first_name or request.user.username,
                     current_track.asset.name,
-                    naturalday(last_play.modified),
+                    naturalday(last_play),
                 )
 
             play_pointer = Play.objects.create(
@@ -200,8 +200,7 @@ def player_event_handler(request):
                 'free': request.user.has_perm('asset.can_download_asset', next_track.asset),
                 'poster': poster or '',
                 'averageRating': next_track.asset.average_rating or 0,
-                'lastPlayAt': last_play.modified.isoformat() if last_play else '',
-                'lastPlayPk': last_play.pk if last_play else '',
+                'lastPlayAt': last_play.isoformat() if last_play else '',
             })
             next_track.state = 'offered'
             next_track.save()
@@ -276,8 +275,9 @@ def collect_rating(request):
     if not asset:
         assetqueueitem_pk = request.POST.get('asset', None)
         try:
-            asset = AssetQueueItem.objects.get(pk=asset_pk).asset
-        except AssetQueueItem.DoesNotExist:
+            aqi = AssetQueueItem.objects.get(pk=assetqueueitem_pk)
+            asset = Asset.objects.get(pk=aqi.object_id)
+        except AssetQueueItem.DoesNotExist, Asset.DoesNotExist:
             asset = None
 
     # We should have a play_pointer in the session.
@@ -320,6 +320,7 @@ def collect_rating(request):
             rating_obj.delete()
             d['rating'] = 0
 
+        asset = Asset.objects.get(pk=asset.pk)  # reload so that average_rating is right
         d['avg_rating'] = asset.average_rating or 0
         d['total_ratings'] = asset.rating_set.count()
 
