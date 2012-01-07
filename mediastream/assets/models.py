@@ -264,7 +264,7 @@ class Artist(Thing):
                     help_text=("If true, Unicode representation will be "
                                "O(+> between 1993 and 2000."),
                     verbose_name="Occasionally known as Prince")
-    discogs     = models.ForeignKey(Discogs, null=True, blank=True)
+    discogs     = models.ForeignKey(Discogs, null=True, blank=True, on_delete=models.SET_NULL)
 
     objects     = ArtistManager()
 
@@ -348,7 +348,7 @@ class Album(Thing):
                         help_text="Contains the work of distinct artists.")
     discs           = models.IntegerField(default=1,
                         help_text="Quantity of discs in the set.")
-    discogs         = models.ForeignKey(Discogs, null=True, blank=True)
+    discogs         = models.ForeignKey(Discogs, null=True, blank=True, on_delete=models.SET_NULL)
     extra_artists   = models.ManyToManyField(Artist, null=True, blank=True,
                         related_name="album_credits",
                         help_text="Additional credited artists for this album, such as remixer, producer, etc.")
