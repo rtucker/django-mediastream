@@ -74,6 +74,7 @@ class AlbumAdmin(admin.ModelAdmin):
         }),
         ('Discogs', {
             'fields': (
+                'discogs',
                 'get_discogs_resource_url',
                 'get_discogs_data_quality',
                 'get_discogs_artists',
@@ -159,6 +160,7 @@ class ArtistAdmin(admin.ModelAdmin):
         }),
         ('Discogs', {
             'fields': (
+                'discogs',
                 'get_discogs_resource_url',
                 'get_discogs_data_quality',
                 'get_discogs_members',
