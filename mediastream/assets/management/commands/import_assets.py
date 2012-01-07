@@ -11,5 +11,5 @@ class Command(BaseCommand):
             for newtrack in newtracks:
                 try:
                     self.stdout.write(u"Successfully imported from %s: pk %i, %s / %s / %s\n" % (newfile, newtrack.pk, newtrack.artist.name, newtrack.album.name, newtrack.name))
-                except UnicodeDecodeError:
+                except UnicodeError:
                     self.stdout.write(u"Successfully imported a track pk %i\n" % (newtrack.pk))
