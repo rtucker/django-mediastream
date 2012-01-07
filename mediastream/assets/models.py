@@ -114,6 +114,7 @@ class Discogs(models.Model):
     objects = DiscogsManager()
 
     class Meta:
+        ordering = ('object_type', 'object_id',)
         unique_together = (('object_type', 'object_id',),)
         verbose_name = 'Discogs mapping'
 
