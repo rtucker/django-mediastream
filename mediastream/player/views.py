@@ -122,6 +122,7 @@ def player_event_handler(request):
                 context = Play.CONTEXT_QUEUE,
                 queue = queue,
                 played = False,
+                user = request.user,
             )
 
             if play_pointer_pk:
@@ -212,7 +213,7 @@ def player_event_handler(request):
 
         except AssetQueueItem.DoesNotExist:
             # queue is empty!
-            randtrack = Track.objects.get_shuffle(offer_pointer)
+            randtrack = Track.objects.get_shuffle(request.user, offer_pointer)
             if not AssetQueueItem.objects.filter(
                 object_id=randtrack.pk,
                 state__in=['offered', 'playing'],

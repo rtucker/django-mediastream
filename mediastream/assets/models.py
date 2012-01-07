@@ -482,11 +482,14 @@ class TrackManager(models.Manager):
 
         return results
 
-    def _get_shuffle_sample(self):
+    def _get_shuffle_sample(self, user):
         "Returns a sampling of a QuerySet."
-        qssample = cache.get('get_shuffle__sample')
+        qssample = cache.get('get_shuffle__sample__%i' % user.pk)
         if not qssample:
             qs = self.get_query_set().filter(skip_random=False)
+            qs = qs.filter(
+                    Q(owner=user) | Q(shared_with=user) |
+                    Q(shared_with_all=True))   # assets we may enjoy
             qs = qs.annotate(anno_rate=Avg('rating__rating'))
             qs = qs.annotate(anno_last=Max('play__modified'))
             qs = qs.filter(
@@ -508,11 +511,11 @@ class TrackManager(models.Manager):
                 seen_artists[t.artist_id] = seen_artists.get(t.artist_id, 0) + 1
                 if seen_albums[t.album_id] < 5 and seen_artists[t.artist_id] < 5:
                     qssample.append(t)
-                if len(qssample) > 499: break
-            cache.set('get_shuffle__sample', qssample, 3600)
+                if len(qssample) > 199: break
+            cache.set('get_shuffle__sample__%i' % user.pk, qssample, 3600)
         return qssample
 
-    def get_shuffle(self, previous=None, debug=False):
+    def get_shuffle(self, user, previous=None, debug=False):
         """Returns a shuffle-mode track, with some smarts.
 
         We set relative probabilities for the following possibilities:
@@ -527,27 +530,29 @@ class TrackManager(models.Manager):
         # Interrogate previous track for good and bad grooves.
         if previous:
             randstats['previous'] = previous.pk
-            grooves = cache.get('get_shuffle__grooves__%i' % previous.pk)
+            grooves = cache.get('get_shuffle__grooves__%i__%i' % (user.pk, previous.pk))
             if not grooves:
                 grooves = list(self.get_query_set().filter(
                     skip_random=False,
                     play__in_groove=True,
                     play__previous_play__asset=previous,
+                    play__user=user,
                 ))
-                cache.set('get_shuffle__grooves__%i' % previous.pk, grooves, 7200)
-            antigrooves = cache.get('get_shuffle__antigrooves__%i' % previous.pk)
+                cache.set('get_shuffle__grooves__%i__%i' % (user.pk, previous.pk), grooves, 7200)
+            antigrooves = cache.get('get_shuffle__antigrooves__%i__%i' % (user.pk, previous.pk))
             if not antigrooves:
                 antigrooves = list(self.get_query_set().filter(
                     skip_random=False,
                     play__in_groove=False,
                     play__previous_play__asset=previous,
+                    play__user=user,
                 ))
-                cache.set('get_shuffle__antigrooves__%i' % previous.pk, antigrooves, 7200)
+                cache.set('get_shuffle__antigrooves__%i__%i' % (user.pk, previous.pk), antigrooves, 7200)
         else:
             antigrooves = []
             grooves = []
 
-        qssample = self._get_shuffle_sample()
+        qssample = self._get_shuffle_sample(user)
         qssample.sort(key=lambda k: k.anno_rate)
 
         # Mix this bad boy up.
@@ -569,6 +574,7 @@ class TrackManager(models.Manager):
             # Randomly pick a sequence.
             iterations += 1
             randstats = {
+                'user_pk': user.pk,
                 'iterations': iterations,
                 'antigrooves_len': len(antigrooves),
                 'grooves_len': len(grooves),
@@ -577,16 +583,16 @@ class TrackManager(models.Manager):
 
             if qssample:
                 result = qssample.pop()
-                if (cache.get('get_shuffle__offered__%i' % result.pk) or
+                if (cache.get('get_shuffle__offered__%i__%i' % (user.pk, result.pk)) or
                     result.recently_played or
                     result in antigrooves
                    ): result=None
             else:
-                cache.delete('get_shuffle__sample')
-                qssample = self.get_shuffle_sample()
+                cache.delete('get_shuffle__sample__%i' % user.pk)
+                qssample = self._get_shuffle_sample(user)
                 randstats['mode'] = 'failsafe'
 
-        cache.set('get_shuffle__offered__%i' % result.pk, True, 7200)
+        cache.set('get_shuffle__offered__%i__%i' % (user.pk, result.pk), True, 7200)
         result._randstats = randstats
         return result
 
@@ -755,6 +761,8 @@ class Play(models.Model):
     modified        = models.DateTimeField(auto_now=True)
 
     asset           = models.ForeignKey(Asset)
+    user            = models.ForeignKey(User, blank=True, null=True,
+                            on_delete=models.SET_NULL)
 
     played          = models.BooleanField(default=True)
 

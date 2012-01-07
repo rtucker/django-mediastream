@@ -369,9 +369,9 @@ class TrackAdmin(admin.ModelAdmin):
 admin.site.register(Track, TrackAdmin)
 
 class PlayAdmin(admin.ModelAdmin):
-    list_display = ['created', 'get_asset_name', 'played']
-    fields = ['get_asset_name', 'get_play_prev', 'get_play_next', 'context', 'played', 'queue', 'created', 'in_groove']
-    readonly_fields = ['get_asset_name', 'get_play_prev', 'get_play_next', 'context', 'played', 'queue', 'created', 'in_groove']
+    list_display = ['created', 'user', 'get_asset_name', 'played']
+    fields = ['user', 'get_asset_name', 'get_play_prev', 'get_play_next', 'context', 'played', 'queue', 'created', 'in_groove']
+    readonly_fields = ['user', 'get_asset_name', 'get_play_prev', 'get_play_next', 'context', 'played', 'queue', 'created', 'in_groove']
 
     def get_asset_name(self, obj):
         if hasattr(obj.asset, 'track'):
