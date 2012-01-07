@@ -242,7 +242,7 @@ def player_event_handler(request):
     request.session['play_pointer'] = play_pointer_pk
 
     d['_queries'] = len(connection.queries)
-    d['_querytime'] = sum([float(f['time']) for f in connection.queries])
+    d['_querytime'] = sum([float(f.get('time', 0)) for f in connection.queries])
     d['_revision'] = gitrevision()[0:10]
 
     return HttpResponse(simplejson.dumps(d), mimetype="application/json")
@@ -341,7 +341,7 @@ def collect_rating(request):
     d['response'] = ' '.join(resp)
 
     d['_queries'] = len(connection.queries)
-    d['_querytime'] = sum([float(f['time']) for f in connection.queries])
+    d['_querytime'] = sum([float(f.get('time', 0)) for f in connection.queries])
     d['_revision'] = gitrevision()[0:10]
 
     return HttpResponse(simplejson.dumps(d), mimetype="application/json")
