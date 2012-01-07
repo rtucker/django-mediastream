@@ -174,6 +174,16 @@ class AssetManager(models.Manager):
 
 class Asset(Thing):
     "Inherited class that owns the actual files."
+    owner = models.ForeignKey(User, blank=True, null=True,
+                              on_delete=models.SET_NULL,
+                              help_text="Owner of this asset",
+                              related_name='owned_assets',)
+    shared_with = models.ManyToManyField(User, blank=True, null=True,
+                              help_text="Users who may access this asset",
+                              related_name='shared_assets',)
+    shared_with_all = models.BooleanField(default=False,
+                              help_text="May any user access this asset?")
+
     class Meta:
         permissions = (
                        ("can_download_asset", "Can download asset"),

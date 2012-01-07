@@ -51,11 +51,45 @@ def merge_assets(modeladmin, request, queryset):
     ct = ContentType.objects.get_for_model(queryset.model)
     return HttpResponseRedirect(reverse('asset-merge', kwargs={'ct': ct.pk, 'ids': ','.join(selected)}))
 
+def set_shared_with_all_off(modeladmin, request, queryset):
+    rows_updated = 0
+    if queryset.model is Track:
+        rows_updated = queryset.update(shared_with_all=False)
+    elif queryset.model is Album:
+        for album in queryset:
+            rows_updated += album.track_set.update(shared_with_all=False)
+    modeladmin.message_user(request, "%i asset%s successfully unshared with all." %
+        (rows_updated, '' if rows_updated == 1 else 's'))
+set_shared_with_all_off.short_description = "Unshare assets with all users"
+
+def set_shared_with_all_on(modeladmin, request, queryset):
+    rows_updated = 0
+    if queryset.model is Track:
+        rows_updated = queryset.update(shared_with_all=True)
+    elif queryset.model is Album:
+        for album in queryset:
+            rows_updated += album.track_set.update(shared_with_all=True)
+    modeladmin.message_user(request, "%i asset%s successfully shared with all." %
+        (rows_updated, '' if rows_updated == 1 else 's'))
+set_shared_with_all_on.short_description = "Share assets with all users"
+
+def take_ownership(modeladmin, request, queryset):
+    rows_updated = 0
+    if queryset.model is Track:
+        rows_updated = queryset.update(owner=request.user)
+    elif queryset.model is Album:
+        for album in queryset:
+            rows_updated += album.track_set.update(owner=request.user)
+    modeladmin.message_user(request, "%i asset%s successfully taken by %s." %
+        (rows_updated, '' if rows_updated == 1 else 's', request.user.username))
+take_ownership.short_description = "Take ownership of assets"
+
 class TaggedItemInline(GenericTabularInline):
     model = TaggedItem
 
 class AlbumAdmin(admin.ModelAdmin):
-    actions         = [link_to_discogs, merge_assets]
+    actions         = [link_to_discogs, merge_assets, set_shared_with_all_on,
+                       set_shared_with_all_off, take_ownership,]
     inlines         = [TaggedItemInline,]
     list_display    = ['__unicode__', 'get_artist_name', 'is_compilation',
                        'discs', 'get_artist_count', 'get_track_count', 'get_play_count', 'discogs']
@@ -236,10 +270,15 @@ class AssetFileInline(admin.StackedInline):
 class TrackAdmin(admin.ModelAdmin):
     inlines         = [TaggedItemInline, AssetFileInline,]
 
+    actions         = [set_shared_with_all_off, set_shared_with_all_on,
+                       take_ownership,]
+
     list_display    = ['__unicode__', 'artist', 'album',
                        'get_pretty_track_number', 'get_pretty_length',
-                       'get_assetfile_count', 'get_play_count', 'get_average_rating']
-    list_filter     = ['artist__name', 'album__name', 'name', 'created',]
+                       'get_assetfile_count', 'get_play_count',
+                       'get_average_rating', 'owner', 'shared_with_all',]
+    list_filter     = ['artist__name', 'album__name', 'name', 'created',
+                       'owner', 'shared_with', 'shared_with_all',]
     search_fields   = ['name',]
     ordering        = ['artist',]
     readonly_fields = ['get_average_rating', 'get_streamable_assetfile',
@@ -263,6 +302,14 @@ class TrackAdmin(admin.ModelAdmin):
                         ('length', 'bpm',),
                         ('get_play_count', 'get_average_rating',),
                         'skip_random',
+                      ),
+        }),
+        ('Ownership Information', {
+            'classes': (),
+            'fields': (
+                        'owner',
+                        'shared_with',
+                        'shared_with_all',
                       ),
         }),
         ('Extra Artists', {
@@ -313,6 +360,11 @@ class TrackAdmin(admin.ModelAdmin):
         return obj.average_rating
     get_average_rating.short_description = 'Average rating'
     get_average_rating.admin_order_field = 'average_rating'
+
+    def save_model(self, request, obj, form, change):
+        if not obj.owner:
+            obj.owner = request.user
+            obj.save()
 
 admin.site.register(Track, TrackAdmin)
 
