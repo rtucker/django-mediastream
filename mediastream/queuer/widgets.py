@@ -3,6 +3,7 @@ from itertools import chain
 from django.utils.safestring import mark_safe
 from django import forms
 from django.contrib.contenttypes.models import ContentType
+from django.core.cache import cache
 
 class ContentTypeSelect(forms.Select):
     def __init__(self, lookup_id,  attrs=None, choices=()):
@@ -21,10 +22,12 @@ class ContentTypeSelect(forms.Select):
         choiceoutlist = []
         for choice in choices:
             try:
-                ctype = ContentType.objects.get(pk=int(choice[0]))
-                choiceoutlist.append("'%s': '../../../%s/%s?t=%s'" % (
-                    str(choice[0]), ctype.app_label, ctype.model,
-                    ctype.model_class()._meta.pk.name))
+                ctype_t = cache.get('contenttypeselect__choice__%i' % int(choice[0]))
+                if not ctype_t:
+                    ctype = ContentType.objects.get(pk=int(choice[0]))
+                    ctype_t = (str(choice[0]), ctype.app_label, ctype.model, ctype.model_class()._meta.pk.name)
+                    cache.set('contenttypeselect__choice__%i' % int(choice[0]), ctype_t)
+                choiceoutlist.append("'%s': '../../../%s/%s?t=%s'" % ctype_t)
             except:
                 pass
         choiceoutput += ',\n'.join(choiceoutlist)

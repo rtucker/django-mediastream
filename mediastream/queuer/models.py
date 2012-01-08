@@ -16,7 +16,7 @@ class AssetQueue(models.Model):
     modified = models.DateTimeField(auto_now=True)
 
     def __unicode__(self):
-        return u"Queue {0} created by {1} at {2}".format(self.pk, self.user, self.created)
+        return u"Queue {0} for {1}".format(self.pk, self.user)
 
 class AssetQueueItem(models.Model):
     STATE_CHOICES = (
