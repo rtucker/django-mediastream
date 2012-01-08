@@ -8,6 +8,10 @@ from mutagen.m4a import M4AMetadataError, M4ACover
 
 from mutagen.flac import FLAC, FLACNoHeaderError
 
+from mutagen.ogg import error as OggError
+from mutagen.ogg import OggPage
+from mutagen.oggvorbis import OggVorbis, OggVorbisInfo, OggVCommentDict, OggVorbisHeaderError
+
 import magic
 import mimetypes
 
@@ -117,6 +121,35 @@ class FLACFile(FLAC):
     def save(self, filename=None):
         raise NotImplementedError
 
+class OggVorbisFile(OggVorbis):
+    def load(self, fp):
+        self.filename = fp.name
+        fileobj = fp
+        try:
+            try:
+                self.info = self._Info(fileobj)
+                self.tags = self._Tags(fileobj, self.info)
+                if self.info.length:
+                    return
+                last_page = OggPage.find_last(fileobj, self.info.serial)
+                samples = last_page.position
+                try:
+                    denom = self.info.sample_rate
+                except AttributeError:
+                    denom = self.info.fps
+                self.info.length = samples / float(denom)
+            except OggError, e:
+                raise self._Error, e, sys.exc_info()[2]
+            except EOFError:
+                raise self._Error, "no appropriate stream found"
+        finally:
+            fileobj.close()
+
+    def save(self, filename=None):
+        raise NotImplementedError
+    def delete(self, filename=None):
+        raise NotImplementedError
+
 class Inspector(object):
     """
     Given a file-like object, this class provides attributes for accessing
@@ -133,6 +166,8 @@ class Inspector(object):
             self._inspect_m4a()
         elif self.mimetype == 'audio/x-flac' or self.mimetype == 'audio/flac':
             self._inspect_flac()
+        elif self.mimetype == 'audio/ogg':
+            self._inspect_oggvorbis()
 
     def _determine_type(self):
         "Determines the type of a file, if possible."
@@ -221,5 +256,24 @@ class Inspector(object):
         self.name           = flacobj.get('title', [None])[0]
         self.track          = flacobj.get('tracknumber', [None])[0]
         self.year           = int(flacobj['date'][0].split('-')[0]) if 'date' in flacobj else None
+
+        self.artwork = []   # TODO
+
+    def _inspect_oggvorbis(self):
+        "Cracks open a FLAC file and determines what is inside."
+        self._fileobj.seek(0)
+        oggobj = OggVorbisFile(self._fileobj)
+
+        self.album          = oggobj.get('album', [None])[0]
+        self.artist         = oggobj.get('artist', [None])[0]
+        self.bitrate        = oggobj.info.bitrate
+        self.disc           = oggobj.get('discnumber', [None])[0]
+        self.genre          = oggobj.get('genre', [None])[0]
+        self.length         = oggobj.info.length
+        self.lossy          = True
+        self.is_compilation = False  # TODO
+        self.name           = oggobj.get('title', [None])[0]
+        self.track          = oggobj.get('tracknumber', [None])[0]
+        self.year           = int(oggobj['date'][0].split('-')[0]) if 'date' in oggobj else None
 
         self.artwork = []   # TODO
