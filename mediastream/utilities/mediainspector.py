@@ -3,8 +3,8 @@ from mutagen.id3 import ParseID3v1, Frames, Frames_2_2, Frame
 
 from mutagen.mp3 import MPEGInfo
 
-from mutagen.m4a import M4A, Atoms, M4AInfo, M4AStreamInfoError, M4ATags
-from mutagen.m4a import M4AMetadataError, M4ACover
+from mutagen.mp4 import MP4, Atoms, MP4Info, MP4StreamInfoError, MP4Tags
+from mutagen.mp4 import MP4MetadataError, MP4Cover
 
 from mutagen.flac import FLAC, FLACNoHeaderError
 
@@ -14,6 +14,23 @@ from mutagen.oggvorbis import OggVorbis, OggVorbisInfo, OggVCommentDict, OggVorb
 
 import magic
 import mimetypes
+
+# Add previously-unknown mimetypes
+mt = mimetypes.MimeTypes()
+mt.add_type('audio/mp4', '.m4a')
+
+# Group and sort the mimetypes, for ease of display
+mimetypes_grouped = {}
+mtmap = mt.types_map_inv[1] # strict
+for mtkey, mtvalue in mtmap.items():
+    mt0, mt1 = mtkey.split('/',1)
+    if mt0 not in mimetypes_grouped:
+        mimetypes_grouped[mt0] = []
+    if (mt, mt1) not in mimetypes_grouped[mt0]:
+        mimetypes_grouped[mt0].append((mtkey, mt1))
+    mimetypes_grouped[mt0].sort()
+
+MIMETYPE_CHOICES = sorted(mimetypes_grouped.items())
 
 # Subclass various mutagen stuff to use file-like objects
 # instead of filenames, since it doesn't really know what
@@ -76,20 +93,20 @@ class ID3File(ID3):
     def save(self, filename=None):
         raise NotImplementedError
 
-class M4AFile(M4A):
+class MP4File(MP4):
     def load(self, fp):
         self.filename = fp.name
         fileobj = fp
         try:
             atoms = Atoms(fileobj)
-            try: self.info = M4AInfo(atoms, fileobj)
+            try: self.info = MP4Info(atoms, fileobj)
             except StandardError, err:
-                raise M4AStreamInfoError, err, sys.exc_info()[2]
-            try: self.tags = M4ATags(atoms, fileobj)
-            except M4AMetadataError:
+                raise MP4StreamInfoError, err, sys.exc_info()[2]
+            try: self.tags = MP4Tags(atoms, fileobj)
+            except MP4MetadataError:
                 self.tags = None
             except StandardError, err:
-                raise M4AMetadataError, err, sys.exc_info()[2]
+                raise MP4MetadataError, err, sys.exc_info()[2]
         finally:
             fileobj.close() 
 
@@ -163,7 +180,7 @@ class Inspector(object):
         if self.mimetype == 'audio/mpeg':
             self._inspect_mp3()
         elif self.mimetype == 'audio/mp4':
-            self._inspect_m4a()
+            self._inspect_mp4()
         elif self.mimetype == 'audio/x-flac' or self.mimetype == 'audio/flac':
             self._inspect_flac()
         elif self.mimetype == 'audio/ogg':
@@ -174,35 +191,35 @@ class Inspector(object):
         self._fileobj.seek(0)
         self.mimetype = None
         if hasattr(self._fileobj, 'name'):
-            self.mimetype = mimetypes.guess_type(self._fileobj.name)[0]
+            self.mimetype = mt.guess_type(self._fileobj.name)[0]
         if not self.mimetype:
             self.mimetype = magic.from_buffer(self._fileobj.read(), mime=True)
 
-    def _inspect_m4a(self):
-        "Cracks open an M4A file and determines what is inside."
+    def _inspect_mp4(self):
+        "Cracks open an MP4 file and determines what is inside."
         self._fileobj.seek(0)
-        m4aobj = M4AFile(self._fileobj)
+        mp4obj = MP4File(self._fileobj)
 
-        self.album = m4aobj.get('\xa9alb', None)
-        self.artist = m4aobj.get('\xa9ART', None)
-        self.bitrate = m4aobj.info.bitrate
-        self.disc = m4aobj.get('disk', [None])[0]
-        self.genre = m4aobj.get('\xa9gen', None)
-        self.length = m4aobj.info.length
+        self.album = mp4obj.get('\xa9alb', None)
+        self.artist = mp4obj.get('\xa9ART', None)
+        self.bitrate = mp4obj.info.bitrate
+        self.disc = mp4obj.get('disk', [None])[0]
+        self.genre = mp4obj.get('\xa9gen', None)
+        self.length = mp4obj.info.length
         self.lossy = True
-        self.is_compilation = m4aobj.get('cpil', None)
-        self.name = m4aobj.get('\xa9nam', None)
-        self.track = m4aobj.get('trkn', [None])[0]
-        self.year = int(m4aobj.get('\xa9day')) if '\xa9day' in m4aobj else None
+        self.is_compilation = mp4obj.get('cpil', None)
+        self.name = mp4obj.get('\xa9nam', None)
+        self.track = mp4obj.get('trkn', [None])[0]
+        self.year = int(mp4obj.get('\xa9day')[0]) if '\xa9day' in mp4obj else None
 
         self.artwork = []
-        if 'covr' in m4aobj:
+        if 'covr' in mp4obj:
             # Cover artwork
             # Untested, so far!
-            covr = m4aobj.get('covr')
-            if covr.imageformat == M4ACover.FORMAT_JPEG:
+            covr = mp4obj.get('covr')
+            if covr.imageformat == MP4Cover.FORMAT_JPEG:
                 covr_mime = 'image/jpeg'
-            elif covr.imageformat == M4ACover.FORMAT_PNG:
+            elif covr.imageformat == MP4Cover.FORMAT_PNG:
                 covr_mime = 'image/png'
             else:
                 covr_mime = 'application/octet-stream'

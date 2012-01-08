@@ -9,9 +9,9 @@ from django.db import models
 from django.db.models import Avg, Max, Count, Q
 from django.utils import simplejson
 
-from mediastream.assets import MIMETYPE_CHOICES, _get_upload_path
-from mediastream.assets import mt as mimetypes
-from mediastream.utilities.mediainspector import Inspector
+from assets import _get_upload_path
+from utilities.mediainspector import mt as mimetypes
+from utilities.mediainspector import Inspector, MIMETYPE_CHOICES
 
 from datetime import datetime, timedelta
 import discogs_client as discogs
