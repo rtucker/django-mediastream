@@ -81,7 +81,7 @@ class DiscogsManager(models.Manager):
         try:
             data = obj_class(obj_id).data
         except discogs.DiscogsAPIError, e:
-            raise Discogs.DoesNotExist("Could not retrieve Discogs object for {0} using {1}({2}): {3}".format(obj.name, repr(obj_class), repr(obj_id), e))
+            raise Discogs.DoesNotExist(u"Could not retrieve Discogs object for {0} using {1}({2}): {3}".format(obj.name, repr(obj_class), repr(obj_id), e))
 
         # Save stuff!
         return self.create(object_type=obj_type,
