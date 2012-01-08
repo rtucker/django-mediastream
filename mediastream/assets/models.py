@@ -664,9 +664,11 @@ class Track(Asset):
         return None
 
     def get_streamable_assetfile(self, **kwargs):
+        #ok_extens = ['.mp3', '.m4a', '.spx', '.ogg']
+        ok_extens = ['.mp3', '.m4a']  # :-(
         for candidate in self.assetfile_set.all():
             fn = candidate.contents.name.lower()
-            if os.path.splitext(fn)[1] in ['.mp3', '.m4a', '.spx', '.ogg']:
+            if os.path.splitext(fn)[1] in ok_extens:
                 return candidate
         raise AssetFile.DoesNotExist("No suitable content found")
     get_streamable_assetfile.short_description = "Best asset for streaming"
