@@ -213,16 +213,22 @@ def player_event_handler(request):
 
         except AssetQueueItem.DoesNotExist:
             # queue is empty!
-            randtrack = Track.objects.get_shuffle(request.user, offer_pointer)
-            if not AssetQueueItem.objects.filter(
-                object_id=randtrack.pk,
-                state__in=['offered', 'playing'],
-            ).exists():
-                aqi = AssetQueueItem.objects.create(
-                    asset_object = randtrack,
-                    queue = queue,
-                )
-                d['randstats'] = randtrack._randstats
+            # perform housekeeping
+            d['_expired'] = queue.do_expire_old_items()
+            # add more tracks, if required
+            if queue.randomize:
+                randtrack = Track.objects.get_shuffle(request.user, offer_pointer)
+                if not AssetQueueItem.objects.filter(
+                    object_id=randtrack.pk,
+                    state__in=['offered', 'playing'],
+                ).exists():
+                    aqi = AssetQueueItem.objects.create(
+                        asset_object = randtrack,
+                        queue = queue,
+                    )
+                    d['randstats'] = randtrack._randstats
+            else:
+                break
 
     if request.session.get('first_refresh', False):
         request.session['first_refresh'] = False

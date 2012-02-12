@@ -4,6 +4,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from mediastream.assets.models import Asset, Album, Track
 
+from datetime import datetime, timedelta
+
 try:
     aqi_default_ct = ContentType.objects.get_for_model(Track)
 except:
@@ -14,9 +16,21 @@ class AssetQueue(models.Model):
     user = models.ForeignKey(User)
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
+    randomize = models.BooleanField(default=True, help_text="When running low on assets, choose random ones?")
+    expire_old_items = models.BooleanField(default=True, help_text="Purge records of old played and skipped assets?")
 
     def __unicode__(self):
         return u"Queue {0} for {1}".format(self.pk, self.user)
+
+    def do_expire_old_items(self):
+        "Deletes queue items older than a day."
+        if self.expire_old_items:
+            too_old = datetime.now() - timedelta(days=1)
+            qs = self.item_set.filter(
+                    state__in=['played', 'skipped'],
+                    modified__lt=too_old,
+                 )
+            return qs.delete()
 
 class AssetQueueItem(models.Model):
     STATE_CHOICES = (
