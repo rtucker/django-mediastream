@@ -200,23 +200,23 @@ class Inspector(object):
         self._fileobj.seek(0)
         mp4obj = MP4File(self._fileobj)
 
-        self.album = mp4obj.get('\xa9alb', None)
-        self.artist = mp4obj.get('\xa9ART', None)
+        self.album = mp4obj.get('\xa9alb', None)[0]
+        self.artist = mp4obj.get('\xa9ART', None)[0]
         self.bitrate = mp4obj.info.bitrate
-        self.disc = mp4obj.get('disk', [None])[0]
-        self.genre = mp4obj.get('\xa9gen', None)
+        self.disc = mp4obj.get('disk', [[None]])[0][0]
+        self.genre = mp4obj.get('\xa9gen', None)[0]
         self.length = mp4obj.info.length
         self.lossy = True
-        self.is_compilation = mp4obj.get('cpil', None)
-        self.name = mp4obj.get('\xa9nam', None)
-        self.track = mp4obj.get('trkn', [None])[0]
-        self.year = int(mp4obj.get('\xa9day')[0]) if '\xa9day' in mp4obj else None
+        self.is_compilation = mp4obj.get('cpil', False)
+        self.name = mp4obj.get('\xa9nam', None)[0]
+        self.track = mp4obj.get('trkn', [[None]])[0][0]
+        self.year = int(mp4obj.get('\xa9day')[0].split('-',1)[0]) if '\xa9day' in mp4obj else None
 
         self.artwork = []
         if 'covr' in mp4obj:
             # Cover artwork
             # Untested, so far!
-            covr = mp4obj.get('covr')
+            covr = mp4obj.get('covr', [None])[0]
             if covr.imageformat == MP4Cover.FORMAT_JPEG:
                 covr_mime = 'image/jpeg'
             elif covr.imageformat == MP4Cover.FORMAT_PNG:
