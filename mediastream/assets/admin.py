@@ -73,6 +73,38 @@ def set_shared_with_all_on(modeladmin, request, queryset):
         (rows_updated, '' if rows_updated == 1 else 's'))
 set_shared_with_all_on.short_description = "Share assets with all users"
 
+def set_skip_random_off(modeladmin, request, queryset):
+    rows_updated = 0
+    if queryset.model is Track:
+        qs = queryset.all()
+    elif queryset.model is Album:
+        qs = []
+        for album in queryset:
+            qs.extend(list(album.track_set.all()))
+    for obj in qs:
+        obj.skip_random = False
+        obj.save()
+        rows_updated += 1
+    modeladmin.message_user(request, "%i asset%s will now be included in random playlists." %
+        (rows_updated, '' if rows_updated == 1 else 's'))
+set_skip_random_off.short_description = "Don't skip assets in random mode"
+
+def set_skip_random_on(modeladmin, request, queryset):
+    rows_updated = 0
+    if queryset.model is Track:
+        qs = queryset.all()
+    elif queryset.model is Album:
+        qs = []
+        for album in queryset:
+            qs.extend(list(album.track_set.all()))
+    for obj in qs:
+        obj.skip_random = True
+        obj.save()
+        rows_updated += 1
+    modeladmin.message_user(request, "%i asset%s will now be skipped in random playlists." %
+        (rows_updated, '' if rows_updated == 1 else 's'))
+set_skip_random_on.short_description = "Skip assets in random mode"
+
 def take_ownership(modeladmin, request, queryset):
     rows_updated = 0
     if queryset.model is Track:
@@ -89,10 +121,12 @@ class TaggedItemInline(GenericTabularInline):
 
 class AlbumAdmin(admin.ModelAdmin):
     actions         = [link_to_discogs, merge_assets, set_shared_with_all_on,
+                       set_skip_random_off, set_skip_random_on,
                        set_shared_with_all_off, take_ownership,]
     inlines         = [TaggedItemInline,]
     list_display    = ['__unicode__', 'get_artist_name', 'is_compilation',
-                       'discs', 'get_artist_count', 'get_track_count', 'get_play_count', 'discogs']
+                       'discs', 'get_artist_count', 'get_track_count',
+                       'get_play_count', 'discogs',]
     list_filter     = ['is_compilation', 'discs', 'name', 'created',]
     search_fields   = ['name',]
     readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_artists', 'get_discogs_credits', 'get_discogs_notes', 'get_play_count',]
@@ -271,14 +305,17 @@ class TrackAdmin(admin.ModelAdmin):
     inlines         = [TaggedItemInline, AssetFileInline,]
 
     actions         = [set_shared_with_all_off, set_shared_with_all_on,
+                       set_skip_random_off, set_skip_random_on,
                        take_ownership,]
 
     list_display    = ['__unicode__', 'artist', 'album',
                        'get_pretty_track_number', 'get_pretty_length',
                        'get_assetfile_count', 'get_play_count',
-                       'get_average_rating', 'owner', 'shared_with_all',]
+                       'get_average_rating', 'owner', 'shared_with_all',
+                       'skip_random',]
     list_filter     = ['artist__name', 'album__name', 'name', 'created',
-                       'owner', 'shared_with', 'shared_with_all',]
+                       'owner', 'shared_with', 'shared_with_all',
+                       'skip_random',]
     search_fields   = ['name',]
     ordering        = ['artist',]
     readonly_fields = ['get_average_rating', 'get_streamable_assetfile',
