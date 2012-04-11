@@ -4,9 +4,10 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.files import File
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect, Http404
-from django.shortcuts import render_to_response
+from django.shortcuts import render_to_response, get_object_or_404
 from django.template import RequestContext
 from django.views.decorators.cache import never_cache
+from django.views.generic import ListView
 
 from mediastream.assets.forms import UploadFileForm, ImportFileForm
 from mediastream.assets.models import Album, Artist, Track, AssetFile
@@ -205,3 +206,29 @@ def merge_assets_view(request, **kwargs):
 
     return render_to_response('assets/merge_assets.html', context, context_instance=RequestContext(request))
 
+class TrackListView(ListView):
+    context_object_name = 'tracks'
+    template_name = 'assets/track_list.html'
+
+    def get_queryset(self):
+        qs = Track.objects.all()
+
+        if 'artist_pk' in self.kwargs:
+            self.artist = get_object_or_404(Artist, pk=self.kwargs['artist_pk'])
+            qs = qs.filter(artist=self.artist).order_by('album')
+        else:
+            self.artist = None
+
+        if 'album_pk' in self.kwargs:
+            self.album = get_object_or_404(Album, pk=self.kwargs['album_pk'])
+            qs = qs.filter(album=self.album).order_by('artist')
+        else:
+            self.album = None
+
+        return qs.distinct()
+
+    def get_context_data(self, **kwargs):
+        context = super(TrackListView, self).get_context_data(**kwargs)
+        context['artist'] = self.artist
+        context['album'] = self.album
+        return context

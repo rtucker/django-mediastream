@@ -1,0 +1,82 @@
+{% extends "player.html" %}
+{% block player_script %}
+    <!-- <link type="text/css" href="{{ STATIC_URL }}stars.css" rel="stylesheet" /> -->
+    <script type="text/javascript" src="{{ STATIC_URL }}ajax_csrf.js"></script>
+    <script type="text/javascript" src="{{ STATIC_URL }}jplayer.playlist.min.js"></script>
+    <!-- <script type="text/javascript" src="{{ STATIC_URL }}jQuery.ajaxQueue.min.js"></script> -->
+    <!-- <script type="text/javascript" src="{{ STATIC_URL }}plajax.js"></script> -->
+    <script type="text/javascript">
+    var jplaylist;
+    var player_event_url = "{% url player_event %}";
+    var player_rating_url = "{% url player_rating %}";
+    var user_id = "{{ user.id }}";
+    $(document).ready(function(){
+        jplaylist = new jPlayerPlaylist({
+            jPlayer: "#jquery_jplayer_1",
+            cssSelectorAncestor: "#jp_container_1"
+        }, [
+            {% for track in object.tracks %}
+            {% if track.get_streamable_assetfile %}
+            {   title:"{{ track.name|escapejs }}",
+                artist:"{{ track.artist|escapejs }}",
+                album:"{{ track.album|escapejs }}",
+                {{ track.get_streaming_exten|escapejs }}:"{{ track.get_streaming_url|escapejs }}"
+            }{% if not forloop.last %},{% endif %}
+            {% endif %}
+            {% endfor %}
+        ], {
+            playlistOptions: {
+                autoPlay: true
+            },
+            supplied: "m4a, mp3",
+            swfPath: "{{ STATIC_URL }}",
+            wmode: "window" // for Firefox 3.6 compatibility
+        });
+    });
+    </script>
+{% endblock %}
+{% block player_body %}
+  <div id="jquery_jplayer_1" class="jp-jplayer"></div>
+  <div id="jp_container_1" class="jp-audio">
+    <div class="jp-type-playlist">
+      <div class="jp-gui jp-interface">
+        <ul class="jp-controls">
+          <li><a href="javascript:;" class="jp-play" tabindex="1">play</a></li>
+          <li><a href="javascript:;" class="jp-pause" tabindex="1">pause</a></li>
+          <li><a href="javascript:;" class="jp-next" tabindex="1">next</a></li>
+          <li><a href="javascript:;" class="jp-stop" tabindex="1">stop</a></li>
+          <li><a href="javascript:;" class="jp-mute" tabindex="1" title="mute">mute</a></li>
+          <li><a href="javascript:;" class="jp-unmute" tabindex="1" title="unmute">unmute</a></li>
+          <li><a href="javascript:;" class="jp-volume-max" tabindex="1" title="max volume">max volume</a></li>
+        </ul>
+        <div class="jp-progress">
+          <div class="jp-seek-bar">
+            <div class="jp-play-bar"></div>
+          </div>
+        </div>
+        <div class="jp-volume-bar">
+          <div class="jp-volume-bar-value"></div>
+        </div>
+        <div class="jp-time-holder">
+          <div class="jp-current-time"></div>
+          <div class="jp-duration"></div>
+        </div>
+        <ul class="jp-toggles">
+          <li><a href="javascript:;" class="jp-shuffle" tabindex="1" title="shuffle">shuffle</a></li>
+          <li><a href="javascript:;" class="jp-shuffle-off" tabindex="1" title="shuffle off">shuffle off</a></li>
+          <li><a href="javascript:;" class="jp-repeat" tabindex="1" title="repeat">repeat</a></li>
+          <li><a href="javascript:;" class="jp-repeat-off" tabindex="1" title="repeat off">repeat off</a></li>
+        </ul>
+      </div>
+      <div class="jp-playlist">
+        <ul>
+          <li></li>
+        </ul>
+      </div>
+      <div class="jp-no-solution">
+        <span>Update Required</span>
+        To play the media you will need to either update your browser to a recent version or update your <a href="http://get.adobe.com/flashplayer/" target="_blank">Flash plugin</a>.
+      </div>
+    </div>
+  </div>
+{% endblock %}

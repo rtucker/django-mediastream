@@ -385,6 +385,10 @@ class Album(Thing):
     get_track_admin_links.allow_tags = True
     get_track_admin_links.short_description = 'Tracks'
 
+    @property
+    def tracks(self):
+        return self.track_set.all().order_by('disc_number', 'track_number')
+
 class TrackManager(models.Manager):
     def get_query_set(self):
         qs = super(TrackManager, self).get_query_set()

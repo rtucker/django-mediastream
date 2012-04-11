@@ -1,25 +1,41 @@
-<html>
-<head>
-  <title>mediastream | track list</title>
-</head>
-<body>
-  <h1>mediastream</h1>
-  {% regroup object_list by artist as artist_list %}
+{% extends 'base.html' %}
+{% load url from future %}
+{% block player_body %}
   <ul>
-    {% for artist in artist_list %}
-    <li>{{ artist.grouper }}</li>
+  {% if artist %}
+    {% regroup tracks|dictsort:"album.name" by album as regrouped_tracks %}
+    <li class="artist"><a href="../">../</a>{{ artist }}</li>
     <ul>
-      {% regroup artist.grouper.track_set.all by album as album_list %}
-      {% for album in album_list %}
-      <li>{{ album.grouper }}</li>
-      <ul>
-        {% for track in album.grouper.track_set.all %}
-        <li>{{ track.track_number }}. <a href="{{ track.pk }}/">{{ track }}</a></li>
+        {% for album in regrouped_tracks %}
+        <li class="album"><a href="{% url 'asset-album' album_pk=album.grouper.pk %}">{{ album.grouper }}</a></li>
+        <ul>
+            {% for track in album.list|dictsort:"track_number"|dictsort:"disc_number" %}
+            <li class="track">{{ track.get_pretty_track_number }}. <a href="{% url 'play-track' pk=track.pk %}">{{ track }}</a></li>
+            {% endfor %}
+        </ul>
         {% endfor %}
-      </ul>
-      {% endfor %}
     </ul>
-    {% endfor %}
+  {% else %}
+      {% if album %}
+        {% regroup tracks|dictsort:"artist" by artist as regrouped_tracks %}
+        {% if regrouped_tracks|length_is:"1" %}
+            {% for grouping in regrouped_tracks %}
+            <li class="album"><a href="../">../</a><a href="{% url 'asset-artist' artist_pk=grouping.grouper.pk %}">{{ grouping.grouper }}</a> - {{ album }} [<a href="{% url 'play-album' pk=album.pk %}">PLAY</a>]</li>
+            <ul>
+                {% for track in grouping.list|dictsort:"track_number"|dictsort:"disc_number" %}
+                <li class="track">{{ track.get_pretty_track_number }}. <a href="{% url 'play-track' pk=track.pk %}">{{ track }}</a></li>
+                {% endfor %}
+            </ul>
+            {% endfor %}
+        {% else %}
+            <li class="album"><a href="../">../</a>{{ album }} [<a href="{% url 'play-album' pk=album.pk %}">PLAY</a>]</li>
+            <ul>
+                {% for track in tracks|dictsort:"track_number"|dictsort:"disc_number" %}
+                <li class="track">{{ track.get_pretty_track_number }}. <a href="{% url 'asset-artist' artist_pk=track.artist.pk %}">{{ track.artist }}</a> - <a href="{% url 'play-track' pk=track.pk %}">{{ track }}</a></li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+      {% endif %}
+  {% endif %}
   </ul>
-</body>
-</html>
+{% endblock %}

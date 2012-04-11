@@ -2,12 +2,17 @@
 <head>
   <title>{% block title %}mediastream{% endblock %}</title>
   <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6/jquery.min.js"></script>
+  <link type="text/css" href="{{ STATIC_URL }}mediastream.css" rel="stylesheet" />
   {% block player_head %}{% endblock %}
   {% block head %}{% endblock %}
 </head>
-<body>
+<body {% block bodyclass %}{% endblock %}>
+{% block body_top %}{% endblock %}
 {% block body %}
-  {% block body_top %}{% endblock %}
+  <div id="heading">
+    <p class="header_top">django-mediastream</p>
+    <p class="header_right">powered by yaycube</p>
+  </div>
   {% block player_body %}{% endblock %}
   {% block body_bottom %}{% endblock %}
 {% endblock %}

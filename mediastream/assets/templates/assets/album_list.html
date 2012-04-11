@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% load url from future %}
+{% block player_body %}
+  <ul>
+    {% for album in object_list %}
+    <li class="album"><a href="{% url 'asset-album' album_pk=album.pk %}">{{ album }}</a></li>
+    {% endfor %}
+  </ul>
+{% endblock %}

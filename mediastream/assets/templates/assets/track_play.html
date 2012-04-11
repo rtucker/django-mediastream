@@ -5,6 +5,9 @@
 {% endblock %}
 {% block player_supplied %}{{ object.get_streaming_exten }}{% endblock %}
 {% block player_textbox %}
+<script type="text/javascript">
+    $('p#playeralerts').remove();
+</script>
     <ul>
       <li>{{ object.artist }} | {{ object }}</li>
       <li><em>{{ object.album }}</em></li>
