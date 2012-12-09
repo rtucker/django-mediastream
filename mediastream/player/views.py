@@ -15,12 +15,15 @@ from mediastream.queuer.models import AssetQueue, AssetQueueItem
 from datetime import datetime, timedelta
 import discogs_client as discogs
 from gitrevision.utils import gitrevision
+import logging
 import pycurl
 from StringIO import StringIO
 import urlparse
 
 RECENT_DAYS=7
 TRACKS_OUT=3
+
+logger = logging.getLogger(__name__)
 
 @never_cache
 @login_required
@@ -189,7 +192,11 @@ def player_event_handler(request):
 
             key = next_track.asset.track.get_streaming_exten()
             url = next_track.asset.track.get_streaming_url()
-            poster = next_track.asset.track.get_artwork_url()
+            try:
+                poster = next_track.asset.track.get_artwork_url()
+            except Exception, e:
+                logger.exception(e)
+                poster = None
             last_play = next_track.asset.last_play
             d['tracks'].append({
                 key: url,

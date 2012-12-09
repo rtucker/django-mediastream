@@ -15,7 +15,7 @@ from utilities.mediainspector import Inspector, MIMETYPE_CHOICES
 
 from datetime import datetime, timedelta
 import discogs_client as discogs
-from gitrevision.utils import gitrevision
+import logging
 import os
 import random
 from tempfile import NamedTemporaryFile
@@ -24,6 +24,8 @@ import zipfile
 
 # Approximate window for repeating Tracks
 RECENT_DAYS = 14
+
+logger = logging.getLogger(__name__)
 
 discogs.user_agent = settings.HTTP_USER_AGENT
 
@@ -137,9 +139,14 @@ class Discogs(models.Model):
             self.data_cache = None
             self.data_cache_dttm = None
             self.save()
-            # read in new stuff from discogs
-            self.data_cache = simplejson.dumps(self.discogs_object.data)
-            self.data_cache_dttm = datetime.now()
+            try:
+                # read in new stuff from discogs
+                self.data_cache = simplejson.dumps(self.discogs_object.data)
+                self.data_cache_dttm = datetime.now()
+            except BaseException, e:
+                logger.exception(e)
+                self.data_cache = None
+                self.data_cache_dttm = None
             self.save()
         return simplejson.loads(self.data_cache)
 
@@ -399,7 +406,7 @@ class TrackManager(models.Manager):
                     last_play=Max('play__modified'),)
 
 
-    def create_from_file(self, stash):
+    def create_from_file(self, stash, name=None, album=None, artist=None):
         if not isinstance(stash, file):
             filename = stash
             stash = open(stash)
@@ -440,6 +447,12 @@ class TrackManager(models.Manager):
         results = []
 
         for f, i in files:
+            if artist:
+                i.artist = artist
+            if album:
+                i.album = album
+            if name:
+                i.name = name
             mandatory = ['artist', 'album', 'name']
             proceed = True
             for attrib in mandatory:

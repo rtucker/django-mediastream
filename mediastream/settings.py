@@ -188,11 +188,11 @@ AWS_STATIC_HEADERS = {
 
 # User agent
 from django import VERSION as djversion
-from git import Repo, InvalidGitRepositoryError
 from platform import python_version
 try:
+    from git import Repo, InvalidGitRepositoryError
     gitrev = Repo().head.commit.hexsha
-except InvalidGitRepositoryError:
+except Exception:
     gitrev = 'unknown'
 HTTP_USER_AGENT = 'django-mediastream/{0} Django/{1} Python/{2} +{3}'.format(
     gitrev[0:10],
