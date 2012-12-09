@@ -396,6 +396,19 @@ class Album(Thing):
     def tracks(self):
         return self.track_set.all().order_by('disc_number', 'track_number')
 
+    @property
+    def streamable_tracks(self):
+        winners = []
+        for t in self.tracks:
+            try:
+                t.get_streamable_assetfile()
+                winners.append(t)
+            except:
+                continue
+
+        return winners
+
+
 class TrackManager(models.Manager):
     def get_query_set(self):
         qs = super(TrackManager, self).get_query_set()

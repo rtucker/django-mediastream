@@ -2,7 +2,7 @@ from django.conf.urls.defaults import patterns, include, url
 from django.contrib.auth.decorators import login_required
 from django.views.generic import DetailView, ListView, RedirectView
 from assets.models import Album, Artist, Track
-from assets.views import TrackListView
+from assets.views import TrackListView, M3UDetailView, PLSDetailView, TrackRedirector
 
 urlpatterns = patterns('',
     (r'^upload/$', 'mediastream.assets.views.upload_file', {}, 'asset-upload'),
@@ -19,6 +19,18 @@ urlpatterns = patterns('',
             model=Album,
             template_name="assets/playlist.html")),
         name='play-album'),
+    url(r'^album/(?P<pk>\d+)/m3u/$',
+        #login_required(M3UDetailView.as_view(
+        M3UDetailView.as_view(
+            model=Album,
+            template_name="assets/playlist.m3u"),
+        name='play-album-m3u'),
+    url(r'^album/(?P<pk>\d+)/pls/$',
+        #login_required(PLSDetailView.as_view(
+        PLSDetailView.as_view(
+            model=Album,
+            template_name="assets/playlist.pls"),
+        name='play-album-pls'),
     url(r'^artist/$',
         ListView.as_view(
             model=Artist,
@@ -36,6 +48,9 @@ urlpatterns = patterns('',
             model=Track,
             template_name="assets/track_play.html")),
         name='play-track'),
+    url(r'^track/(?P<pk>\d+)/stream/$',
+        TrackRedirector.as_view(),
+        name='stream-track'),
     url(r'^tracks/$',
         RedirectView.as_view(
             url='/assets/track/')),

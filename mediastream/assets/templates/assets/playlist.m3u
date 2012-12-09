@@ -1,0 +1,6 @@
+#EXTM3U
+{% load url from future %}
+{% for track in object.streamable_tracks %}
+#EXTINF:{{ track.length }},{{ track.artist }} - {{ track.name }}
+{{ baseurl }}{% url 'stream-track' pk=track.pk %}
+{% endfor %}

@@ -20,7 +20,7 @@
         {% regroup tracks|dictsort:"artist" by artist as regrouped_tracks %}
         {% if regrouped_tracks|length_is:"1" %}
             {% for grouping in regrouped_tracks %}
-            <li class="album"><a href="../">../</a><a href="{% url 'asset-artist' artist_pk=grouping.grouper.pk %}">{{ grouping.grouper }}</a> - {{ album }} [<a href="{% url 'play-album' pk=album.pk %}">PLAY</a>]</li>
+            <li class="album"><a href="../">../</a><a href="{% url 'asset-artist' artist_pk=grouping.grouper.pk %}">{{ grouping.grouper }}</a> - {{ album }} [<a href="{% url 'play-album' pk=album.pk %}">PLAY</a> | <a href="{% url 'play-album-m3u' pk=album.pk %}">M3U</a> | <a href="{% url 'play-album-pls' pk=album.pk %}">PLS</a>]</li>
             <ul>
                 {% for track in grouping.list|dictsort:"track_number"|dictsort:"disc_number" %}
                 <li class="track">{{ track.get_pretty_track_number }}. <a href="{% url 'play-track' pk=track.pk %}">{{ track }}</a></li>

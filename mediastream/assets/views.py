@@ -1,13 +1,14 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ObjectDoesNotExist
 from django.core.files import File
 from django.core.urlresolvers import reverse
-from django.http import HttpResponseRedirect, Http404
+from django.http import HttpRequest, HttpResponseRedirect, Http404
 from django.shortcuts import render_to_response, get_object_or_404
 from django.template import RequestContext
 from django.views.decorators.cache import never_cache
-from django.views.generic import ListView
+from django.views.generic import ListView, DetailView, RedirectView
 
 from mediastream.assets.forms import UploadFileForm, ImportFileForm
 from mediastream.assets.models import Album, Artist, Track, AssetFile
@@ -232,3 +233,46 @@ class TrackListView(ListView):
         context['artist'] = self.artist
         context['album'] = self.album
         return context
+
+class TrackRedirector(RedirectView):
+    permanent = False
+
+    def get_redirect_url(self, **kwargs):
+        track = get_object_or_404(Track, pk=kwargs['pk'])
+        try:
+            return track.get_streaming_url()
+        except ObjectDoesNotExist:
+            return None
+
+class M3UDetailView(DetailView):
+    def render_to_response(self, context, **response_kwargs):
+        """
+        Returns a response with a template rendered with the given context.
+        """
+        scheme = 'https' if self.request.is_secure() else 'http'
+        host = self.request.get_host()
+        context['baseurl'] = scheme + '://' + host
+        return self.response_class(
+            request = self.request,
+            template = self.get_template_names(),
+            context = context,
+            mimetype = 'audio/x-mpegurl',
+            **response_kwargs
+        )
+
+class PLSDetailView(DetailView):
+    def render_to_response(self, context, **response_kwargs):
+        """
+        Returns a response with a template rendered with the given context.
+        """
+        scheme = 'https' if self.request.is_secure() else 'http'
+        host = self.request.get_host()
+        context['baseurl'] = scheme + '://' + host
+        return self.response_class(
+            request = self.request,
+            template = self.get_template_names(),
+            context = context,
+            mimetype = 'audio/x-scpls',
+            **response_kwargs
+        )
+
