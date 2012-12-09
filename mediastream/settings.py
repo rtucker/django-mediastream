@@ -162,6 +162,8 @@ LOGGING = {
 # Debuggery
 INTERNAL_IPS = ('127.0.0.1',)
 
+USE_X_FORWARDED_HOST=True
+
 # File storage
 # See AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME
 # in local_settings.py
