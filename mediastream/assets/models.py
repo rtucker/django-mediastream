@@ -466,6 +466,8 @@ class TrackManager(models.Manager):
                 i.album = album
             if name:
                 i.name = name
+            if i.album is None:
+                i.album = 'Non-album tracks'
             mandatory = ['artist', 'album', 'name']
             proceed = True
             for attrib in mandatory:
