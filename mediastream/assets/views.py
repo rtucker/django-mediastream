@@ -11,7 +11,7 @@ from django.views.decorators.cache import never_cache
 from django.views.generic import ListView, DetailView, RedirectView
 
 from mediastream.assets.forms import UploadFileForm, ImportFileForm
-from mediastream.assets.models import Album, Artist, Track, AssetFile
+from mediastream.assets.models import Album, Artist, Track, AssetFile, Play
 from mediastream.utilities.mediainspector import Inspector
 from mediastream.utilities.recursion import long_substr
 
@@ -240,9 +240,16 @@ class TrackRedirector(RedirectView):
     def get_redirect_url(self, **kwargs):
         track = get_object_or_404(Track, pk=kwargs['pk'])
         try:
-            return track.get_streaming_url()
+            url = track.get_streaming_url()
         except ObjectDoesNotExist:
             return None
+
+        play_pointer = Play.objects.create(
+            asset = track,
+            context = Play.CONTEXT_STANDALONE,
+        )
+
+        return url
 
 class M3UDetailView(DetailView):
     def render_to_response(self, context, **response_kwargs):
