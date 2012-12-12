@@ -28,7 +28,7 @@
             </ul>
             {% endfor %}
         {% else %}
-            <li class="album"><a href="../">../</a>{{ album }} [<a href="{% url 'play-album' pk=album.pk %}">PLAY</a>]</li>
+            <li class="album"><a href="../">../</a>{{ album }} [<a href="{% url 'play-album' pk=album.pk %}">PLAY</a> | <a href="{% url 'play-album-m3u' pk=album.pk %}">M3U</a> | <a href="{% url 'play-album-pls' pk=album.pk %}">PLS</a>]</li>
             <ul>
                 {% for track in tracks|dictsort:"track_number"|dictsort:"disc_number" %}
                 <li class="track">{{ track.get_pretty_track_number }}. <a href="{% url 'asset-artist' artist_pk=track.artist.pk %}">{{ track.artist }}</a> - <a href="{% url 'play-track' pk=track.pk %}">{{ track }}</a></li>
