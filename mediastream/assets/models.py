@@ -7,7 +7,6 @@ from django.core.files.base import ContentFile
 from django.core.urlresolvers import reverse
 from django.db import models
 from django.db.models import Avg, Max, Count, Q
-from django.utils import simplejson
 
 from assets import _get_upload_path
 from utilities.mediainspector import mt as mimetypes
@@ -16,6 +15,7 @@ from utilities.mediainspector import Inspector, MIMETYPE_CHOICES
 from datetime import datetime, timedelta
 import discogs_client as discogs
 import logging
+import json
 import os
 import random
 from tempfile import NamedTemporaryFile
@@ -88,7 +88,7 @@ class DiscogsManager(models.Manager):
         # Save stuff!
         return self.create(object_type=obj_type,
                            object_id=obj_id,
-                           data_cache=simplejson.dumps(data),
+                           data_cache=json.dumps(data),
                            data_cache_dttm=datetime.now())
 
 class Discogs(models.Model):
@@ -141,14 +141,14 @@ class Discogs(models.Model):
             self.save()
             try:
                 # read in new stuff from discogs
-                self.data_cache = simplejson.dumps(self.discogs_object.data)
+                self.data_cache = json.dumps(self.discogs_object.data)
                 self.data_cache_dttm = datetime.now()
             except BaseException, e:
                 logger.exception(e)
                 self.data_cache = None
                 self.data_cache_dttm = None
             self.save()
-        return simplejson.loads(self.data_cache)
+        return json.loads(self.data_cache)
 
     def get_asset(self):
         qs = list(self.artist_set.all()) + list(self.album_set.all())
