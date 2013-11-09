@@ -1,8 +1,8 @@
-from django.conf.urls.defaults import patterns, include, url
+from django.conf.urls import patterns, include, url
 from django.contrib.auth.decorators import login_required
 from django.views.generic import DetailView, ListView, RedirectView
-from assets.models import Album, Artist, Track
-from assets.views import TrackListView, M3UDetailView, PLSDetailView, TrackRedirector
+from models import Album, Artist, Track
+from views import TrackListView, M3UDetailView, PLSDetailView, TrackRedirector
 
 urlpatterns = patterns('',
     (r'^upload/$', 'mediastream.assets.views.upload_file', {}, 'asset-upload'),

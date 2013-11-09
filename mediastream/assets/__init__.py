@@ -1,6 +1,6 @@
 from django.conf import settings
 
-from utilities.mediainspector import mt
+from mediastream.utilities.mediainspector import mt
 
 import os
 import time

@@ -7,7 +7,6 @@ from django.views.decorators.cache import never_cache, cache_page
 from django.http import HttpResponse, Http404
 from django.shortcuts import get_object_or_404, render_to_response, redirect
 from django.template import RequestContext
-from django.utils import simplejson
 
 from mediastream.assets.models import Asset, AssetFile, Play, Rating, Track, Artist, Album, Discogs
 from mediastream.queuer.models import AssetQueue, AssetQueueItem
@@ -15,6 +14,7 @@ from mediastream.queuer.models import AssetQueue, AssetQueueItem
 from datetime import datetime, timedelta
 import discogs_client as discogs
 from gitrevision.utils import gitrevision
+import json
 import logging
 import pycurl
 from StringIO import StringIO
@@ -82,7 +82,7 @@ def player_event_handler(request):
     if not queue_pk:
         d['response'] = ("I'm sorry, but please reload this page when "
                          "you get a chance.  I've had an accident.")
-        return HttpResponse(simplejson.dumps(d), mimetype="application/json")
+        return HttpResponse(json.dumps(d), mimetype="application/json")
 
     # Determine client state
     player_state = post.get('eventType', 'jPlayer_unknown')
@@ -258,7 +258,7 @@ def player_event_handler(request):
     d['_querytime'] = sum([float(f.get('time', 0)) for f in connection.queries])
     d['_revision'] = gitrevision()[0:10]
 
-    return HttpResponse(simplejson.dumps(d), mimetype="application/json")
+    return HttpResponse(json.dumps(d), mimetype="application/json")
 
 @login_required
 def collect_rating(request):
@@ -357,7 +357,7 @@ def collect_rating(request):
     d['_querytime'] = sum([float(f.get('time', 0)) for f in connection.queries])
     d['_revision'] = gitrevision()[0:10]
 
-    return HttpResponse(simplejson.dumps(d), mimetype="application/json")
+    return HttpResponse(json.dumps(d), mimetype="application/json")
 
 @login_required
 @cache_page(604800)

@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.contenttypes import generic
-from mediastream.queuer.models import AssetQueue, AssetQueueItem
+from models import AssetQueue, AssetQueueItem
 from forms import AdminAssetQueueItemForm
 
 #class AssetQueueItemInline(generic.GenericTabularInline):

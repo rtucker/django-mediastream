@@ -8,10 +8,56 @@ from django.core.urlresolvers import reverse
 from django.db.models import Avg, Max, Min, Count
 from django.http import HttpResponseRedirect
 from django.template.defaultfilters import slugify
-from django.utils import simplejson
-from assets.models import *
-from tags.models import Tag, TaggedItem
-from utilities.recursion import html_tree
+from django.utils.translation import ugettext_lazy as _
+from mediastream.assets.models import *
+from mediastream.tags.models import Tag, TaggedItem
+from mediastream.utilities.recursion import html_tree
+
+from collections import defaultdict
+import json
+import re
+
+class AlphabeticNameListFilter(admin.SimpleListFilter):
+    """
+    Adds filtering by first char (alphabetic style) of values in the admin
+    filter sidebar.
+    """
+
+    fieldname = 'name'
+    title = _('name starts with')
+    parameter_name = 'namestartswith'
+
+    NUMERIC_RG = r"^[0-9]"
+    LETTER_RG = r"^[A-Z]"
+
+    def lookups(self, request, model_admin):
+        # TODO: cache this
+        qs = model_admin.get_queryset(request)
+        tn = qs.model._meta.db_table
+        qs = qs.extra(select={'_firstletter': 'upper(left(`%s`.`%s`, 1))' % (tn, self.fieldname)})
+        ch = defaultdict(int)
+        for value in qs.values_list('_firstletter', flat=True):
+            if re.match(self.NUMERIC_RG, value):
+                ch["0-9"] += 1
+            elif re.match(self.LETTER_RG, value):
+                ch[value] += 1
+            else:
+                ch["other"] += 1
+
+        for key in sorted(ch):
+            yield (key, "%s (%d)" % (key, ch[key]))
+
+    def queryset(self, request, queryset):
+        if self.value() is None:
+            return queryset
+        elif self.value() == "0-9":
+            return queryset.filter(**{"%s__iregex" % self.fieldname: self.NUMERIC_RG})
+        elif self.value() == "other":
+            qs = queryset.exclude(**{"%s__iregex" % self.fieldname: self.NUMERIC_RG})
+            return qs.exclude(**{"%s__iregex" % self.fieldname: self.LETTER_RG})
+        else:
+            return queryset.filter(**{"%s__istartswith" % self.fieldname: self.value()})
+
 
 def link_to_discogs(modeladmin, request, queryset):
     rows_updated = 0
@@ -127,7 +173,7 @@ class AlbumAdmin(admin.ModelAdmin):
     list_display    = ['__unicode__', 'get_artist_name', 'is_compilation',
                        'discs', 'get_artist_count', 'get_track_count',
                        'get_play_count', 'discogs',]
-    list_filter     = ['is_compilation', 'discs', 'name', 'created',]
+    list_filter     = ['is_compilation', 'discs', AlphabeticNameListFilter, 'created',]
     search_fields   = ['name',]
     readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_artists', 'get_discogs_credits', 'get_discogs_notes', 'get_play_count',]
 
@@ -216,7 +262,7 @@ class ArtistAdmin(admin.ModelAdmin):
     inlines         = [TaggedItemInline,]
     list_display    = ['__unicode__', 'is_prince',
                        'get_album_count', 'get_track_count', 'get_play_count', 'discogs']
-    list_filter     = ['is_prince', 'name', 'created',]
+    list_filter     = ['is_prince', AlphabeticNameListFilter, 'created',]
     search_fields   = ['name',]
     readonly_fields = ['get_track_admin_links', 'get_discogs_resource_url', 'get_discogs_data_quality', 'get_discogs_members', 'get_discogs_profile', 'get_play_count',]
 
@@ -313,7 +359,8 @@ class TrackAdmin(admin.ModelAdmin):
                        'get_assetfile_count', 'get_play_count',
                        'get_average_rating', 'owner', 'shared_with_all',
                        'skip_random',]
-    list_filter     = ['artist__name', 'album__name', 'name', 'created',
+    list_filter     = ['artist__name', 'album__name',
+                        AlphabeticNameListFilter, 'created',
                        'owner', 'shared_with', 'shared_with_all',
                        'skip_random',]
     search_fields   = ['name',]
@@ -478,7 +525,7 @@ class DiscogsAdmin(admin.ModelAdmin):
     get_asset_link.allow_tags=True
 
     def get_pretty_data_cache(self, obj):
-        data = simplejson.loads(obj.data_cache)
+        data = json.loads(obj.data_cache)
         return u'<div class="aligned">{0}</div>'.format(html_tree(data))
     get_pretty_data_cache.short_description='Data cache'
     get_pretty_data_cache.allow_tags=True

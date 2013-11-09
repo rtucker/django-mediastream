@@ -8,9 +8,9 @@ from django.core.urlresolvers import reverse
 from django.db import models
 from django.db.models import Avg, Max, Count, Q
 
-from assets import _get_upload_path
-from utilities.mediainspector import mt as mimetypes
-from utilities.mediainspector import Inspector, MIMETYPE_CHOICES
+from mediastream.assets import _get_upload_path
+from mediastream.utilities.mediainspector import mt as mimetypes
+from mediastream.utilities.mediainspector import Inspector, MIMETYPE_CHOICES
 
 from datetime import datetime, timedelta
 import discogs_client as discogs
@@ -160,8 +160,6 @@ class Thing(models.Model):
     name        = models.CharField(max_length=255)
     created     = models.DateTimeField(auto_now_add=True)
     modified    = models.DateTimeField(auto_now=True)
-
-    name.alphabetic_filter = True
 
     class Meta:
         abstract = True
