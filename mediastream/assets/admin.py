@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.contrib.contenttypes.generic import GenericTabularInline
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.humanize.templatetags.humanize import naturalday
+from django.core.cache import cache
 from django.core.urlresolvers import reverse
 from django.db.models import Avg, Max, Min, Count
 from django.http import HttpResponseRedirect
@@ -16,6 +17,7 @@ from mediastream.utilities.recursion import html_tree
 from collections import defaultdict
 import json
 import re
+import time
 
 class AlphabeticNameListFilter(admin.SimpleListFilter):
     """
@@ -24,25 +26,29 @@ class AlphabeticNameListFilter(admin.SimpleListFilter):
     """
 
     fieldname = 'name'
-    title = _('name starts with')
+    title = _('first letter of name')
     parameter_name = 'namestartswith'
 
     NUMERIC_RG = r"^[0-9]"
     LETTER_RG = r"^[A-Z]"
 
     def lookups(self, request, model_admin):
-        # TODO: cache this
         qs = model_admin.get_queryset(request)
         tn = qs.model._meta.db_table
         qs = qs.extra(select={'_firstletter': 'upper(left(`%s`.`%s`, 1))' % (tn, self.fieldname)})
-        ch = defaultdict(int)
-        for value in qs.values_list('_firstletter', flat=True):
-            if re.match(self.NUMERIC_RG, value):
-                ch["0-9"] += 1
-            elif re.match(self.LETTER_RG, value):
-                ch[value] += 1
-            else:
-                ch["other"] += 1
+        cachekey = __name__ + ".AlphabeticNameListFilter." + tn + "." + self.fieldname
+        ch = cache.get(cachekey)
+        if ch is None:
+            starttime = time.time()
+            ch = defaultdict(int)
+            for value in qs.values_list('_firstletter', flat=True):
+                if re.match(self.NUMERIC_RG, value):
+                    ch["0-9"] += 1
+                elif re.match(self.LETTER_RG, value):
+                    ch[value] += 1
+                else:
+                    ch["other"] += 1
+            cache.set(cachekey, ch)
 
         for key in sorted(ch):
             yield (key, "%s (%d)" % (key, ch[key]))

@@ -111,14 +111,14 @@ class Discogs(models.Model):
     )
     object_id = models.CharField(max_length=255)
     data_cache = models.TextField(blank=True, null=True)
-    data_cache_dttm = models.DateTimeField(blank=True, null=True, verbose_name='Data cache timestamp')
+    data_cache_dttm = models.DateTimeField(blank=True, null=True, verbose_name='data cache timestamp')
 
     objects = DiscogsManager()
 
     class Meta:
         ordering = ('object_type', 'object_id',)
         unique_together = (('object_type', 'object_id',),)
-        verbose_name = 'Discogs mapping'
+        verbose_name = 'discogs mapping'
 
     def __unicode__(self):
         return u"{0} {1}".format(
@@ -253,7 +253,7 @@ class AssetDescriptor(models.Model):
 
     bit_rate    = models.FloatField(blank=True, null=True)
     is_vbr      = models.NullBooleanField(blank=True, null=True,
-                                          verbose_name="Variable bit rate")
+                                          verbose_name="variable bit rate")
     lossy       = models.NullBooleanField(blank=True, null=True)
     sample_rate = models.FloatField(blank=True, null=True)
 
@@ -278,7 +278,7 @@ class Artist(Thing):
     is_prince   = models.BooleanField(default=False,
                     help_text=("If true, Unicode representation will be "
                                "O(+> between 1993 and 2000."),
-                    verbose_name="Occasionally known as Prince")
+                    verbose_name="occasionally known as Prince")
     discogs     = models.ForeignKey(Discogs, null=True, blank=True, on_delete=models.SET_NULL)
 
     objects     = ArtistManager()
@@ -642,9 +642,9 @@ class Track(Asset):
     track_number = models.IntegerField(blank=True, null=True)
 
     length      = models.IntegerField(blank=True, null=True,
-                    verbose_name="Duration (seconds)")
+                    verbose_name="duration (seconds)")
     bpm         = models.FloatField(blank=True, null=True,
-                    verbose_name="Beats per minute")
+                    verbose_name="beats per minute")
     skip_random = models.BooleanField(default=False,
                     help_text="Don't play during random mode")
 
@@ -809,7 +809,7 @@ class Play(models.Model):
                             on_delete=models.SET_NULL)
     in_groove       = models.NullBooleanField(blank=True, null=True,
                             default=None,
-                            verbose_name="Is this set grooving?")
+                            verbose_name="is this set grooving?")
 
     objects = PlayManager()
 
