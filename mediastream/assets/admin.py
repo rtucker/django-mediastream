@@ -175,7 +175,7 @@ class AlbumAdmin(admin.ModelAdmin):
     actions         = [link_to_discogs, merge_assets, set_shared_with_all_on,
                        set_skip_random_off, set_skip_random_on,
                        set_shared_with_all_off, take_ownership,]
-    inlines         = [TaggedItemInline,]
+    #inlines         = [TaggedItemInline,]
     list_display    = ['__unicode__', 'get_artist_name', 'is_compilation',
                        'discs', 'get_artist_count', 'get_track_count',
                        'get_play_count', 'discogs',]
@@ -265,7 +265,7 @@ admin.site.register(Album, AlbumAdmin)
 class ArtistAdmin(admin.ModelAdmin):
     actions         = [link_to_discogs]
 
-    inlines         = [TaggedItemInline,]
+    #inlines         = [TaggedItemInline,]
     list_display    = ['__unicode__', 'is_prince',
                        'get_album_count', 'get_track_count', 'get_play_count', 'discogs']
     list_filter     = ['is_prince', AlphabeticNameListFilter, 'created',]
@@ -354,7 +354,10 @@ class AssetFileInline(admin.StackedInline):
     )
 
 class TrackAdmin(admin.ModelAdmin):
-    inlines         = [TaggedItemInline, AssetFileInline,]
+    inlines         = [
+                       #TaggedItemInline,
+                       AssetFileInline,
+                      ]
 
     actions         = [set_shared_with_all_off, set_shared_with_all_on,
                        set_skip_random_off, set_skip_random_on,
