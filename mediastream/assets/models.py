@@ -822,12 +822,18 @@ class Play(models.Model):
     objects = PlayManager()
 
     def __unicode__(self):
-        return u"Play {0} ({1}, {2}, {3})".format(
-            self.pk,
-            self.asset.name,
-            'played' if self.played else 'not played',
-            self.get_context_display(),
-        )
+        #cache_key = __name__ + ".Play.__unicode__.pk." + str(self.pk)
+        #outstr = cache.get(cache_key)
+        outstr = None
+        if outstr is None:
+            outstr = u"Play {0} ({1}, {2}, {3})".format(
+                self.pk,
+                self.asset.name,
+                'played' if self.played else 'not played',
+                self.get_context_display(),
+            )
+            #cache.set(cache_key, outstr)
+        return outstr
 
 class RatingManager(models.Manager):
     def get_average_rating(self, asset, history=None):

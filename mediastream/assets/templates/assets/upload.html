@@ -19,12 +19,12 @@ var uppath = "{{ STATIC_URL }}jquery.uploadProgress.js";
 </ul>
 {% endif %}
 <div id="upload_form">
-  <form id="upform" enctype="multipart/form-data" method="post" action="{% url asset-upload %}">
+  <form id="upform" enctype="multipart/form-data" method="post" action="{% url "asset-upload" %}">
     {% csrf_token %}
     {{ upform.as_p }}
     <input type="submit" value="Submit" />
   </form>
-  <form id="imform" method="post" action="{% url asset-upload %}">
+  <form id="imform" method="post" action="{% url "asset-upload" %}">
     {% csrf_token %}
     {{ imform.as_p }}
     <input type="submit" value="Submit" />

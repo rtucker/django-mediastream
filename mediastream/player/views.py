@@ -31,11 +31,16 @@ def music_player(request):
     "Returns a jPlayer music player for the user, with some stuff in the queue."
     # Find queues with unplayed stuff
     all_queues = AssetQueue.objects.filter(user=request.user)
-    queues = all_queues.filter(item_set__state__in=['waiting', 'offered']
-                            ).annotate(Count('item_set__state'))
-    if not queues.exists():
+    if not all_queues.exists():
+        q = AssetQueue.objects.create(user=request.user)
+        all_queues = AssetQueue.objects.filter(user=request.user)
+
+    queues = all_queues.annotate(Count('item_set__state'))
+    #queues = all_queues.filter(item_set__state__in=['waiting', 'offered']
+    #                        ).annotate(Count('item_set__state'))
+    #if not queues.exists():
         #return redirect('player-set-queue')
-        return HttpResponse('utoh')
+        #return HttpResponse('utoh: no queue available')
 
     # TODO: Make selection easier
     queue = queues[0]
@@ -111,17 +116,19 @@ def player_event_handler(request):
             current_track.state = 'playing'
             current_track.save()
 
-            last_play = current_track.asset.last_play
+            ct_asset = Asset.objects.get(pk=current_track.asset.pk)
+
+            last_play = ct_asset.last_play
 
             if last_play:
                 d['response'] = u"{0}, the last time you listened to {1} was {2}.".format(
                     request.user.first_name or request.user.username,
-                    current_track.asset.name,
+                    ct_asset.name,
                     naturalday(last_play),
                 )
 
             play_pointer = Play.objects.create(
-                asset = current_track.asset,
+                asset = ct_asset,
                 context = Play.CONTEXT_QUEUE,
                 queue = queue,
                 played = False,
@@ -169,19 +176,25 @@ def player_event_handler(request):
     d['tracks'] = []
     while (len(d['tracks']) + remaining) < TRACKS_OUT:
         try:
-            if not offer_pointer:
+            if offer_pointer is not None and queue.item_set.exists():
+                next_track = offer_pointer.get_next_by_created()
+            elif offer_pointer is None and queue.item_set.exists():
+                # initialize it to the first avlid item in the queue
                 next_track = queue.item_set.all()[0]
             else:
-                next_track = offer_pointer.get_next_by_created()
+                # is it... empty?!
+                raise AssetQueueItem.DoesNotExist
             offer_pointer = next_track
             if next_track.state != 'waiting':
                 continue
             if not request.user.has_perm('asset.can_stream_asset', next_track.asset):
                 continue
 
+            nt_asset = Asset.objects.get(pk=next_track.asset.pk)
+
             # Try to build out discogs data slowly but surely
             try:
-                artist = next_track.asset.track.artist
+                artist = nt_asset.track.artist
                 #album  = next_track.asset.track.album
                 artist.discogs = Discogs.objects.get_for_object(artist)
                 artist.save()
@@ -190,24 +203,24 @@ def player_event_handler(request):
             except Discogs.DoesNotExist:
                 pass
 
-            key = next_track.asset.track.get_streaming_exten()
-            url = next_track.asset.track.get_streaming_url()
+            key = nt_asset.track.get_streaming_exten()
+            url = nt_asset.track.get_streaming_url()
             try:
-                poster = next_track.asset.track.get_artwork_url()
+                poster = nt_asset.track.get_artwork_url()
             except Exception, e:
                 logger.exception(e)
                 poster = None
-            last_play = next_track.asset.last_play
+            last_play = nt_asset.last_play
             d['tracks'].append({
                 key: url,
                 'pk': next_track.pk,
-                'assetPk': next_track.asset.pk,
-                'album': next_track.asset.track.album.name,
-                'artist': next_track.asset.track.artist.name,
-                'title': next_track.asset.track.name,
+                'assetPk': nt_asset.pk,
+                'album': nt_asset.track.album.name,
+                'artist': nt_asset.track.artist.name,
+                'title': nt_asset.track.name,
                 'free': request.user.has_perm('asset.can_download_asset', next_track.asset),
                 'poster': poster or '',
-                'averageRating': next_track.asset.average_rating or 0,
+                'averageRating': nt_asset.average_rating or 0,
                 'lastPlayAt': last_play.isoformat() if last_play else '',
             })
             next_track.state = 'offered'

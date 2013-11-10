@@ -15,7 +15,7 @@ class AdminAssetQueueItemForm(ModelForm):
         except:
             model = Album
             model_key = 'id'
-        self.fields['object_id'].widget = ForeignKeyRawIdWidget(rel=ManyToOneRel(model, model_key))
+        #self.fields['object_id'].widget = ForeignKeyRawIdWidget(rel=ManyToOneRel(self.fields['object_id'], model, model_key))
         self.fields['content_type'].widget.widget = ContentTypeSelect('lookup_id_object_id', 
                         self.fields['content_type'].widget.widget.attrs, 
                         self.fields['content_type'].widget.widget.choices)

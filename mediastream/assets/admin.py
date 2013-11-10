@@ -499,10 +499,15 @@ class RatingAdmin(admin.ModelAdmin):
     readonly_fields = ['modified', 'get_asset_name', 'user', 'play', 'rating', 'get_rating_stars']
 
     def get_asset_name(self, obj):
-        if hasattr(obj.asset, 'track'):
-            return u"{0} - {1} <i>({2})</i>".format(obj.asset.track.artist.name, obj.asset.track.name, obj.asset.track.album.name)
-        else:
-            return obj.asset.__unicode__()
+        cache_key = __name__ + ".RatingAdmin.get_asset_name.asset_pk." + str(obj.asset.pk)
+        outstr = cache.get(cache_key)
+        if outstr is None:
+            if hasattr(obj.asset, 'track'):
+                outstr = u"{0} - {1} <i>({2})</i>".format(obj.asset.track.artist.name, obj.asset.track.name, obj.asset.track.album.name)
+            else:
+                outstr = obj.asset.__unicode__()
+            cache.set(cache_key, outstr)
+        return outstr
     get_asset_name.short_description = "Asset"
     get_asset_name.allow_tags = True
 
