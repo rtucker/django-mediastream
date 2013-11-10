@@ -308,6 +308,11 @@ class Artist(Thing):
                     name=track.name,
                 ))
 
+        cache_key = __name__ + ".Artist.get_track_album_links.outstr"
+        outstr = cache.get(cache_key)
+        if outstr is not None:
+            return outstr
+
         out = [u'<ul>']
 
         direct = self.track_set.values('album').order_by('album').distinct()
@@ -339,7 +344,10 @@ class Artist(Thing):
 
         out.append(u'</ul>')
 
-        return ''.join(out)
+        outstr = ''.join(out)
+        cache.set(cache_key, outstr)
+        return outstr
+
     get_track_admin_links.allow_tags = True
     get_track_admin_links.short_description = 'Tracks'
 
