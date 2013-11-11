@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
+from django.core.cache import cache
 from mediastream.assets.models import Asset, Album, Track
 
 from datetime import datetime, timedelta
@@ -19,8 +20,16 @@ class AssetQueue(models.Model):
     randomize = models.BooleanField(default=True, help_text="When running low on assets, choose random ones?")
     expire_old_items = models.BooleanField(default=True, help_text="Purge records of old played and skipped assets?")
 
+    _unicode_cache = None
+
     def __unicode__(self):
-        return u"Queue {0} for {1}".format(self.pk, self.user)
+        cache_key = __name__ + '.AssetQueue.__unicode__.' + str(self.pk)
+        if self._unicode_cache is None:
+            self._unicode_cache = cache.get(cache_key)
+        if self._unicode_cache is None:
+            self._unicode_cache = u"Queue {0} for {1}".format(self.pk, self.user.username)
+            cache.set(cache_key, self._unicode_cache)
+        return self._unicode_cache
 
     def do_expire_old_items(self):
         "Deletes queue items older than a day."
@@ -56,14 +65,22 @@ class AssetQueueItem(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
+    _unicode_cache = None
+
     class Meta:
         # TODO: order_with_respect_to = 'queue', then actually make sure it
         # all goes in the right order...
         ordering = ['id']
 
     def __unicode__(self):
-        return u"Item {0} in {1} ({2})".format(self.pk, self.queue,
+        cache_key = __name__ + '.AssetQueueItem.__unicode__.' + str(self.pk)
+        if self._unicode_cache is None:
+            self._unicode_cache = cache.get(cache_key)
+        if self._unicode_cache is None:
+            self._unicode_cache = u"Item {0} in {1} ({2})".format(self.pk, self.queue,
                                             self.get_state_display())
+            cache.set(cache_key, self._unicode_cache)
+        return self._unicode_cache
 
     @property
     def asset(self):

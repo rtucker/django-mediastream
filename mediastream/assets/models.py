@@ -208,6 +208,9 @@ class AssetFile(Thing):
     class Meta:
         order_with_respect_to = 'asset'
 
+    def __unicode__(self):
+        return u"{0} ({1})".format(self.contents.name, self.mimetype)
+
     @property
     def filename(self):
         if hasattr(self.asset, 'track') and self.mimetype.startswith('audio'):

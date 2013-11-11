@@ -382,7 +382,7 @@ class TrackAdmin(admin.ModelAdmin):
 
     fieldsets       = (
         ('Media Summary', {
-            'classes': ('collapse', 'float-right',),
+            'classes': ('float-right',),
             'fields': ('artwork_preview', 'get_streamable_assetfile',),
         }),
         ('Track Data', {
