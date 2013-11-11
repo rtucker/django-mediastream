@@ -138,6 +138,12 @@ var bug_server = function(data){
             } else {
                 $('title').text('mediastream cloud music');
             }
+            if(reply.artistBio){
+                $("#artistbio").show();
+                $("#artistbio").text(reply.artistBio);
+            } else {
+                $("#artistbio").hide();
+            }
             reticulate_splines();
         }
     });

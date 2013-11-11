@@ -109,6 +109,18 @@ def player_event_handler(request):
              'queuePk':     queue.pk,
             }
 
+        # Inject artist bio, if available
+        discogs_data = getattr(current_artist.discogs, 'data', None)
+        if discogs_data is not None:
+            abio = []
+            if 'profile' in discogs_data:
+                abio += [discogs_data['profile']]
+            elif 'members' in discogs_data and 'name' in discogs_data:
+                abio += ["%s members: %s" % (discogs_data['name'], ', '.join(discogs_data['members']))]
+
+            if len(abio) > 0:
+                d['artistBio'] = '<br/>'.join(abio)
+
         # Handle client states
         if player_state == 'jPlayer_play':
             # Player is currently playing.
@@ -268,7 +280,7 @@ def player_event_handler(request):
     request.session['play_pointer'] = play_pointer_pk
 
     d['_queries'] = len(connection.queries)
-    d['_querytime'] = sum([float(f.get('time', 0)) for f in connection.queries])
+    d['_querytime'] = int(sum([float(f.get('time', 0)) for f in connection.queries])*1000)
     d['_revision'] = gitrevision()[0:10]
 
     return HttpResponse(json.dumps(d), mimetype="application/json")

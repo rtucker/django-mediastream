@@ -19,7 +19,7 @@ class AssetQueueItemInline(admin.TabularInline):
 
     def _fetch_missing_data(self, obj=None):
         if obj is not None:
-            cache_key = __name__ + '.AQII_datacache2.' + str(obj.pk)
+            cache_key = __name__ + '.AQII_datacache3.' + str(obj.pk)
 
             if self._datacache[obj.pk] is None:
                 self._datacache[obj.pk] = cache.get(cache_key)
@@ -27,7 +27,9 @@ class AssetQueueItemInline(admin.TabularInline):
                 self._datacache[obj.pk] = {
                     'ctname': obj.content_type.name,
                     'artist': obj.asset_object.track.artist.name,
+                    'artistpk': obj.asset_object.track.artist.pk,
                     'album': obj.asset_object.track.album.name,
+                    'albumpk': obj.asset_object.track.album.pk,
                     'track': obj.asset_object.track.name,
                     'trackpk': obj.asset_object.track.pk,
                 }
@@ -46,7 +48,7 @@ class AssetQueueItemInline(admin.TabularInline):
         if not obj:
             return u''
         if self._content_type_name(obj) == 'track':
-            return u'<strong>{0}</strong>'.format(self._getdata('artist', obj))
+            return u'<strong><a href="{0}">{1}</a></strong>'.format(urlresolvers.reverse('admin:assets_artist_change', args=(self._getdata('artistpk', obj),)), self._getdata('artist', obj))
         return u''
     artist.allow_tags = True
 
@@ -54,7 +56,7 @@ class AssetQueueItemInline(admin.TabularInline):
         if not obj:
             return u''
         if self._content_type_name(obj) == 'track':
-            return u'<strong>{0}</strong>'.format(self._getdata('album', obj))
+            return u'<strong><a href="{0}">{1}</a></strong>'.format(urlresolvers.reverse('admin:assets_album_change', args=(self._getdata('albumpk', obj),)), self._getdata('album', obj))
         return u''
     album.allow_tags = True
 
