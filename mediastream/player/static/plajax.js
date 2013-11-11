@@ -140,7 +140,7 @@ var bug_server = function(data){
             }
             if(reply.artistBio){
                 $("#artistbio").show();
-                $("#artistbio").text(reply.artistBio);
+                $("#artistbio").html(reply.artistBio);
             } else {
                 $("#artistbio").hide();
             }

@@ -42,6 +42,11 @@ class DiscogsManager(models.Manager):
             obj_type    = Discogs.ARTIST
             obj_id      = obj.name
             obj_class   = discogs.Artist
+
+            if obj_id.startswith("The "):
+                # Discogs does "The Blah Blah" -> "Blah Blah, The"
+                obj_id = obj_id[4:] + ", The"
+
         elif type(obj) is Album:
             obj_type    = Discogs.RELEASE
             obj_id      = None

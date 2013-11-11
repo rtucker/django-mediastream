@@ -17,6 +17,7 @@ from gitrevision.utils import gitrevision
 import json
 import logging
 import pycurl
+import re
 from StringIO import StringIO
 import urlparse
 
@@ -114,12 +115,18 @@ def player_event_handler(request):
         if discogs_data is not None:
             abio = []
             if 'profile' in discogs_data:
-                abio += [discogs_data['profile']]
-            elif 'members' in discogs_data and 'name' in discogs_data:
-                abio += ["%s members: %s" % (discogs_data['name'], ', '.join(discogs_data['members']))]
+                profile = "<strong>Profile</strong>: " + discogs_data['profile']
+                profile = re.sub(r"(%s) " % current_artist.name, r"<strong>\1</strong> ", profile, count=1)
+                profile = re.sub(r"\[a=([^\]]+)\]", r'<a target="_blank" href="//www.discogs.com/artist/\1">\1</a>', profile)
+                abio += ['<br/>'.join(profile.splitlines())]
+            if 'members' in discogs_data:
+                memlist = ['<a target="_blank" href="//www.discogs.com/artist/%s">%s</a>' % (f, f) for f in discogs_data['members']]
+                abio += ["<strong>Members</strong>: %s" % ', '.join(memlist)]
+            if 'uri' in discogs_data:
+                abio += ['<em>More information at <a target="_blank" href="%s">Discogs</a></em>' % discogs_data['uri']]
 
             if len(abio) > 0:
-                d['artistBio'] = '<br/>'.join(abio)
+                d['artistBio'] = '<br/><br/>'.join(abio)
 
         # Handle client states
         if player_state == 'jPlayer_play':
