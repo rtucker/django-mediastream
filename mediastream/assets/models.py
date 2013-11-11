@@ -80,7 +80,10 @@ class DiscogsManager(models.Manager):
 
         # Do we already have one of these?
         try:
-            return self.get(object_type=obj_type, object_id=obj_id)
+            existing_obj = self.get(object_type=obj_type, object_id=obj_id)
+            obj.discogs = existing_obj
+            obj.save()
+            return existing_obj
         except Discogs.DoesNotExist:
             pass
         
@@ -91,10 +94,16 @@ class DiscogsManager(models.Manager):
             raise Discogs.DoesNotExist(u"Could not retrieve Discogs object for {0} using {1}({2}): {3}".format(obj.name, repr(obj_class), repr(obj_id), e))
 
         # Save stuff!
-        return self.create(object_type=obj_type,
+        new_obj = self.create(object_type=obj_type,
                            object_id=obj_id,
                            data_cache=json.dumps(data),
                            data_cache_dttm=datetime.now())
+
+        # Point our object at it
+        obj.discogs = new_obj
+        obj.save()
+
+        return new_obj
 
 class Discogs(models.Model):
     "Holds a relationship with Discogs."
@@ -316,7 +325,7 @@ class Artist(Thing):
                     name=track.name,
                 ))
 
-        cache_key = __name__ + ".Artist.get_track_album_links.outstr"
+        cache_key = __name__ + ".Artist.get_track_album_links.outstr." + str(self.pk)
         outstr = cache.get(cache_key)
         if outstr is not None:
             return outstr
