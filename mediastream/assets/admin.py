@@ -366,17 +366,18 @@ class TrackAdmin(admin.ModelAdmin):
     list_display    = ['__unicode__', 'artist', 'album',
                        'get_pretty_track_number', 'get_pretty_length',
                        'get_assetfile_count', 'get_play_count',
-                       'get_average_rating', 'owner', 'shared_with_all',
-                       'skip_random',]
-    list_filter     = ['artist__name', 'album__name',
-                        AlphabeticNameListFilter, 'created',
-                       'owner', 'shared_with', 'shared_with_all',
-                       'skip_random',]
+                       'get_average_rating', 'owner', 'created',
+                       'shared_with_all', 'skip_random',
+                      ]
+    list_filter     = ['created', 'owner', 'shared_with', 'shared_with_all',
+                       'skip_random',
+                      ]
     search_fields   = ['name',]
     ordering        = ['artist',]
     readonly_fields = ['get_average_rating', 'get_streamable_assetfile',
                        'get_play_count', 'artwork_preview',
-                       'get_extra_artist_list',]
+                       'get_extra_artist_list',
+                      ]
 
     filter_horizontal = ['extra_artists',]
 
