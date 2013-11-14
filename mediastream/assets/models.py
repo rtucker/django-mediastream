@@ -162,6 +162,10 @@ class Discogs(models.Model):
                 self.data_cache = None
                 self.data_cache_dttm = None
             self.save()
+
+        if self.data_cache is None:
+            return None
+
         return json.loads(self.data_cache)
 
     def get_asset(self):

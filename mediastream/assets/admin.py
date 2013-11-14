@@ -427,7 +427,7 @@ class TrackAdmin(admin.ModelAdmin):
     def get_extra_artist_list(self, obj):
         return u', '.join([
                     u'<a href="{0}">{1}</a>'.format(
-                        reverse('admin:{app_label}_{module_name}_change'.format(**f._meta.__dict__), args=(f.pk,)),
+                        reverse('admin:{app_label}_{model_name}_change'.format(**f._meta.__dict__), args=(f.pk,)),
                         f.name,
                     ) for f in obj.extra_artists.all()
         ])

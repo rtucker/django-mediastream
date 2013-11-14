@@ -340,8 +340,14 @@ def collect_rating(request):
     if play and not asset:
         asset = play.asset
 
+    if play is None and asset is not None:
+        try:
+            play = Play.objects.filter(asset=asset).latest('pk')
+        except Play.DoesNotExist:
+            pass
+
     # Handle rating, 1-5 stars.
-    if rating and asset:
+    if rating and asset and play:
         rating = int(rating)
 
         try:
