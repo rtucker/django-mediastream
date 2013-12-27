@@ -196,7 +196,7 @@ def player_event_handler(request):
 
     # Top off the user's playlist
     d['tracks'] = []
-    while (len(d['tracks']) + remaining) < TRACKS_OUT:
+    while (len(d['tracks']) + remaining) <= TRACKS_OUT:
         try:
             if queue.item_set.filter(state='offered').count() >= TRACKS_OUT:
                 # already have plenty of tracks out
