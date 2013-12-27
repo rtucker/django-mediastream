@@ -13,7 +13,7 @@ $.fn.stars = function() {
 }
 
 var send_event = function(event){
-    if(jplaylist.current > 0){
+    if(jplaylist.current > 1){
         jplaylist.remove(0);
     }
     var data = {

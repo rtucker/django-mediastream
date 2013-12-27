@@ -84,6 +84,9 @@ def player_event_handler(request):
     # Remaining tracks
     remaining = int(post.get('playlistLength', 0))
 
+    # Last track on the far side
+    caboose_pk = int(post.get('caboosePk', 0))
+
     # Start building response
     if not queue_pk:
         d['response'] = ("I'm sorry, but please reload this page when "
@@ -195,10 +198,18 @@ def player_event_handler(request):
     d['tracks'] = []
     while (len(d['tracks']) + remaining) < TRACKS_OUT:
         try:
+            if queue.item_set.filter(state='offered').count() >= TRACKS_OUT:
+                # already have plenty of tracks out
+                break
+
+            if offer_pointer is not None and caboose_pk > 0 and caboose_pk < offer_pointer.pk:
+                # we're handling an old message, skip it
+                break
+
             if offer_pointer is not None and queue.item_set.exists():
                 next_track = offer_pointer.get_next_by_created()
             elif offer_pointer is None and queue.item_set.exists():
-                # initialize it to the first avlid item in the queue
+                # initialize it to the first valid item in the queue
                 next_track = queue.item_set.all()[0]
             else:
                 # is it... empty?!
