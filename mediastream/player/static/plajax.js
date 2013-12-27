@@ -16,6 +16,10 @@ var send_event = function(event){
     if(jplaylist.current > 1){
         jplaylist.remove(0);
     }
+    if(jplaylist.current > 0 & jplaylist.playlist[0].assetPk == undefined) {
+        // startup track, nuke it
+        jplaylist.remove(0);
+    }
     var data = {
         eventType:      event.type,
         currentTime:    event.jPlayer.status.currentTime,
@@ -87,7 +91,7 @@ var handle_rating = function(event){
                 $("#playeralerts").delay(20000);
                 $("#playeralerts").fadeOut(600);
             }
-            $('a.jp-playlist-current > span.jp-rating').html("average rating: " + reply.avg_rating + " (ratings: " + reply.total_ratings + ")").show();
+            $('a.jp-playlist-current > span.jp-rating').html("<br/>average rating: " + reply.avg_rating + " (ratings: " + reply.total_ratings + ")").show();
             $(star_span).html(reply.rating);
             $(star_span).stars();
         }
@@ -101,15 +105,18 @@ var reticulate_splines = function(){
         $("div#albumart img").hide('slow');
     }
 
-    if($('li.jp-playlist-current').has('div.starbox').length < 1) {
+    if($('li.jp-playlist-current').has('div.starbox').length < 1 & jplaylist.playlist[jplaylist.current].assetPk != undefined) {
         $('li.jp-playlist-current > div').append('<div class="starbox"></div>');
         $('div.starbox').append('<span class="stars">0</span>');
         $('div.starbox > span.stars').stars();
         $('div.starbox > span.stars').click(handle_rating);
         $('div.starbox').append('<span class="groove"></span>');
-        $('span.groove').append('<p>This set: <input class="groovebox" value="nope" type="checkbox">not doing it for me</input><input class="groovebox" value="awyeah" type="checkbox">grooving fiercely</input></p>');
+        $('span.groove').append('<br/><input class="groovebox" value="nope" type="checkbox">Set is not doing it for me</input><br/><input class="groovebox" value="awyeah" type="checkbox">Set is grooving fiercely</input>');
         $('input.groovebox').click(handle_groove);
     }
+
+    // clean up old ones
+    $('div.jp-playlist > ul > li:not(li.jp-playlist-current) > div > div.starbox').remove();
 }
 
 var bug_server = function(data){
