@@ -392,7 +392,7 @@ def collect_rating(request):
     d['response'] = ' '.join(resp)
 
     d['_queries'] = len(connection.queries)
-    d['_querytime'] = sum([float(f.get('time', 0)) for f in connection.queries])
+    d['_querytime'] = int(sum([float(f.get('time', 0)) for f in connection.queries])*1000)
     d['_revision'] = gitrevision()[0:10]
 
     return HttpResponse(json.dumps(d), mimetype="application/json")
