@@ -23,7 +23,7 @@ from urlparse import urlparse
 import zipfile
 
 # Approximate window for repeating Tracks
-RECENT_DAYS = 14
+RECENT_DAYS = 30
 
 logger = logging.getLogger(__name__)
 
