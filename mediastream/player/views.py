@@ -22,7 +22,7 @@ from StringIO import StringIO
 import urlparse
 
 RECENT_DAYS=7
-TRACKS_OUT=3
+TRACKS_OUT=4
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +170,6 @@ def player_event_handler(request):
         elif player_state == 'jPlayer_ended':
             current_track.state = 'played'
             current_track.save()
-            remaining -= 1
             if play_pointer_pk:
                 try:
                     play_pointer = Play.objects.get(pk=play_pointer_pk)
@@ -194,9 +193,9 @@ def player_event_handler(request):
         offer_pointer = None
         remaining = 0
 
-    # Top off the user's playlist
+    # Top off the user's playlist when we get a chance
     d['tracks'] = []
-    while (len(d['tracks']) + remaining) <= TRACKS_OUT:
+    while ((len(d['tracks']) + remaining) < TRACKS_OUT):
         try:
             if queue.item_set.filter(state='offered').count() >= TRACKS_OUT:
                 # already have plenty of tracks out

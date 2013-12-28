@@ -629,7 +629,7 @@ class TrackManager(models.Manager):
 
         result = None
         iterations = 0
-        while not result:
+        while result is None:
             # Randomly pick a sequence.
             iterations += 1
             randstats = {
