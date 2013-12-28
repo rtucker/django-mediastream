@@ -256,7 +256,10 @@ class AlbumAdmin(admin.ModelAdmin):
 
     def get_discogs_resource_url(self, obj):
         if obj.discogs:
-            return '<a href="{resource_url}" target="_blank">Discogs ID {id}</a>'.format(**obj.discogs.data)
+            result = u'Discogs ID <a href="{resource_url}" target="_blank">{id}</a>'.format(**obj.discogs.data)
+            if 'uri' in obj.discogs.data:
+                result += u', profile page <a href="{uri}" target="_blank">{uri}</a>'.format(**obj.discogs.data)
+            return result
     get_discogs_resource_url.allow_tags=True
     get_discogs_resource_url.short_description='Resource'
 
@@ -327,7 +330,10 @@ class ArtistAdmin(admin.ModelAdmin):
 
     def get_discogs_resource_url(self, obj):
         if obj.discogs:
-            return '<a href="{resource_url}" target="_blank">Discogs ID {id}</a>'.format(**obj.discogs.data)
+            result = u'Discogs ID <a href="{resource_url}" target="_blank">{id}</a>'.format(**obj.discogs.data)
+            if 'uri' in obj.discogs.data:
+                result += u', profile page <a href="{uri}" target="_blank">{uri}</a>'.format(**obj.discogs.data)
+            return result
     get_discogs_resource_url.allow_tags=True
     get_discogs_resource_url.short_description='Resource'
 

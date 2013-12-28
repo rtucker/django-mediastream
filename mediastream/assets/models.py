@@ -112,12 +112,14 @@ class Discogs(models.Model):
     MASTERRELEASE = 3
     LABEL = 4
     SEARCH = 5
+    ARTIST_RAWID = 17
     OBJECT_TYPE_CHOICES = (
         (ARTIST, 'Artist'),
         (RELEASE, 'Release'),
         (MASTERRELEASE, 'MasterRelease'),
         (LABEL, 'Label'),
         (SEARCH, 'Search'),
+        (ARTIST_RAWID, 'Artist ID'),
     )
 
     object_type = models.PositiveSmallIntegerField(
@@ -142,7 +144,31 @@ class Discogs(models.Model):
 
     @property
     def discogs_object(self):
-        return getattr(discogs, self.get_object_type_display())(self.object_id)
+        if self.object_type == self.ARTIST_RAWID:
+            class Artists(discogs.Artist):
+                _uri_name = 'artists'
+
+                @property
+                def data(self):
+                    if self.name == '355':
+                        # unknown artist is bad
+                        return {
+                                'resource_url': 'http://api.discogs.com/artists/noop',
+                                'id': 355,
+                                'name': 'Unknown Artist',
+                                'profile': 'This artist is used as a placeholder entry and does not link to any artist.',
+                               }
+                    if self._response.content and self._response.status_code == 200:
+                        release_json = json.loads(self._response.content)
+                        return release_json
+                    else:
+                        status_code = self._response.status_code
+                        raise discogs.DiscogsAPIError('http error %d' % status_code)
+
+            discogs_obj = Artists
+        else:
+            discogs_obj = getattr(discogs, self.get_object_type_display())
+        return discogs_obj(self.object_id)
 
     @property
     def data(self):
