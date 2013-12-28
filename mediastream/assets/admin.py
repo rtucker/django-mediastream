@@ -530,7 +530,7 @@ class DiscogsAdmin(admin.ModelAdmin):
 
     def get_asset_link(self, obj):
         asset = obj.get_asset()
-        url = reverse('admin:{app_label}_{module_name}_change'.format(**asset._meta.__dict__), args=(asset.pk,))
+        url = reverse('admin:{app_label}_{model_name}_change'.format(**asset._meta.__dict__), args=(asset.pk,))
         return u'{0} <a href="{1}">{2}</a>'.format(
             asset._meta.verbose_name,
             url,
